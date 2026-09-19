@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>이천창고 오더피킹</title>
+<meta name="theme-color" content="#15181B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{
+  --ground:#EEF0EC; --surface:#FFFFFF; --surface-2:#F5F6F3; --ink:#15181B; --ink-2:#4A5057; --ink-3:#7A8189;
+  --line:#D5D9D2; --plate:#F4C21B; --plate-ink:#15181B; --btn-bg:#15181B; --btn-fg:#FFFFFF;
+  --ok:#1E7D45; --ok-bg:#E1F2E7; --warn:#B65E0C; --warn-bg:#FBEBD8; --bad:#BD3528; --bad-bg:#F8E1DD; --live:#1E7D45;
+  --shadow:0 1px 2px rgba(21,24,27,.06),0 6px 20px rgba(21,24,27,.06);
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  --f-plate:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#111315; --surface:#1A1D20; --surface-2:#22262A; --ink:#ECEEEA; --ink-2:#B3B9B2; --ink-3:#858C86;
+    --line:#2F3438; --plate:#F2C230; --plate-ink:#15181B; --btn-bg:#ECEEEA; --btn-fg:#111315;
+    --ok:#56C584; --ok-bg:#15301F; --warn:#F0A04B; --warn-bg:#382813; --bad:#F27A6B; --bad-bg:#3B1B18; --live:#56C584;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111315; --surface:#1A1D20; --surface-2:#22262A; --ink:#ECEEEA; --ink-2:#B3B9B2; --ink-3:#858C86;
+  --line:#2F3438; --plate:#F2C230; --plate-ink:#15181B; --btn-bg:#ECEEEA; --btn-fg:#111315;
+  --ok:#56C584; --ok-bg:#15301F; --warn:#F0A04B; --warn-bg:#382813; --bad:#F27A6B; --bad-bg:#3B1B18; --live:#56C584;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+html,body{background:var(--ground)}
+body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:0 96px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--plate);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-3)}
+.wrap{max-width:1040px;margin:0 auto}
+.narrow{max-width:600px;margin:0 auto}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--ground);margin-inline:-16px;height:54px;padding:0 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:-.01em;font-size:16px;margin-right:auto}
+.brand i{display:block;width:22px;height:22px;border-radius:4px;background:repeating-linear-gradient(-45deg,var(--plate) 0 5px,var(--plate-ink) 5px 10px)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);white-space:nowrap}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.pill.live .dot{background:var(--live);box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 25%,transparent)}
+.pill.tap{cursor:pointer}
+
+/* buttons */
+.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);font-weight:500;text-align:center}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--btn-bg);color:var(--btn-fg);border-color:var(--btn-bg);font-weight:700}
+.btn.big{min-height:64px;font-size:18px;width:100%}
+.btn.warn{color:var(--warn)}
+.btn.small{min-height:36px;padding:0 12px;font-size:13.5px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{width:22px;height:22px;flex:none}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>.btn{flex:1 1 0}
+
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.015em}
+h2{font-size:20px}
+h3{font-size:15px}
+.section{display:flex;flex-direction:column;gap:14px;padding-block:18px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase}
+
+/* board */
+.board-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tally{display:flex;gap:18px;font-size:13.5px;color:var(--ink-2)}
+.tally b{font-family:var(--f-mono);font-size:20px;color:var(--ink);display:block;line-height:1.1}
+.slips{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.slip{display:flex;flex-direction:column;gap:10px;text-align:left;padding:16px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);width:100%}
+.slip-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.slip-no{font-family:var(--f-mono);font-weight:600;font-size:15px}
+.route{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:14px}
+.route span{color:var(--ink-3);font-size:12.5px}
+.route b{font-weight:500;overflow-wrap:anywhere}
+.bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar .d{background:var(--ok)} .bar .s{background:var(--warn)}
+.slip-foot{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap}
+.chip.wait{background:var(--surface-2);color:var(--ink-2)}
+.chip.run{background:var(--plate);color:var(--plate-ink)}
+.chip.done{background:var(--ok-bg);color:var(--ok)}
+.chip.short{background:var(--warn-bg);color:var(--warn)}
+.empty{padding:28px 18px;border:1.5px dashed var(--line);border-radius:var(--r);text-align:center;color:var(--ink-2);display:flex;flex-direction:column;gap:12px;align-items:center}
+.steps{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;counter-reset:s}
+.steps li{counter-increment:s;display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink-2);padding:12px;border-radius:var(--r);background:var(--surface-2)}
+.steps li::before{content:counter(s);font-family:var(--f-plate);font-weight:700;font-size:20px;line-height:1;background:var(--plate);color:var(--plate-ink);border-radius:4px;min-width:26px;height:26px;display:grid;place-items:center}
+
+/* pick */
+.pickhead{position:sticky;top:54px;z-index:15;background:var(--ground);margin-inline:-16px;padding:10px 16px 12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+.pickhead-top{display:flex;align-items:center;gap:10px}
+.back{border:0;background:none;padding:6px;margin-left:-6px;border-radius:8px;display:grid;place-items:center}
+.back svg{width:22px;height:22px}
+.pickhead .t{min-width:0;flex:1}
+.pickhead .t b{display:block;font-family:var(--f-mono);font-size:15px}
+.pickhead .t span{display:block;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.count{font-family:var(--f-mono);font-size:14px;color:var(--ink-2);white-space:nowrap}
+.count b{font-size:20px;color:var(--ink)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.plate{background:var(--plate);color:var(--plate-ink);padding:14px 18px 12px;position:relative}
+.plate::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;background:repeating-linear-gradient(-45deg,var(--plate-ink) 0 8px,transparent 8px 16px);opacity:.9}
+.plate .lbl{font-size:12px;font-weight:700;letter-spacing:.08em;opacity:.75}
+.plate .loc{font-family:var(--f-plate);font-weight:700;font-size:clamp(56px,17vw,84px);line-height:.95;letter-spacing:.01em;padding-bottom:8px;overflow-wrap:anywhere}
+.plate .alt{font-size:13px;font-weight:500;padding-bottom:8px}
+.plate.none{background:var(--surface-2);color:var(--ink-2)}
+.plate.none::after{display:none}
+.plate.none .loc{font-size:34px;font-family:var(--f-body);letter-spacing:-.02em;padding-block:6px 4px}
+.item{padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.item .name{font-size:21px;font-weight:700;line-height:1.3;letter-spacing:-.02em}
+.item .meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13.5px;color:var(--ink-2)}
+.item .code{font-family:var(--f-mono);font-weight:600;color:var(--ink);font-size:15px}
+.qty{display:flex;align-items:baseline;gap:8px;padding:0 18px 16px}
+.qty b{font-family:var(--f-mono);font-size:44px;line-height:1;font-weight:600}
+.qty span{font-family:var(--f-mono);font-size:22px;color:var(--ink-3)}
+.qty em{font-style:normal;font-size:14px;color:var(--ink-2);margin-left:auto}
+.actions{display:flex;flex-direction:column;gap:8px;padding:0 18px 18px}
+.manual{display:flex;gap:8px}
+.manual input{flex:1;min-width:0;min-height:48px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2);padding:0 12px;font-family:var(--f-mono)}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);font-size:14px}
+.banner b{display:block;font-size:15px}
+.banner.ok{background:var(--ok-bg);color:var(--ok)}
+.banner.bad{background:var(--bad-bg);color:var(--bad)}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}
+.banner .mono{color:inherit}
+
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.li{display:grid;grid-template-columns:92px 1fr auto;gap:10px;align-items:center;padding:11px 14px;border:0;border-top:1px solid var(--line);background:none;text-align:left;width:100%}
+.li:first-child{border-top:0}
+.li .l{font-family:var(--f-plate);font-weight:700;font-size:21px;line-height:1}
+.li .l.none{font-family:var(--f-body);font-size:12.5px;color:var(--ink-3);font-weight:500}
+.li .n{font-size:14px;line-height:1.35;min-width:0}
+.li .n small{display:block;font-family:var(--f-mono);color:var(--ink-3);font-size:12px}
+.li .q{font-family:var(--f-mono);font-size:14px;text-align:right;white-space:nowrap}
+.li.cur{background:color-mix(in srgb,var(--plate) 18%,var(--surface))}
+.li.done .n,.li.done .l{color:var(--ink-3)}
+.li.done .n{text-decoration:line-through;text-decoration-color:var(--line)}
+.li.skip .q::after{content:" · 나중에";color:var(--ink-3);font-family:var(--f-body);font-size:12px}
+details.done-box summary{cursor:pointer;font-weight:700;font-size:14px;padding:6px 0;color:var(--ink-2)}
+.finish{padding:22px 18px;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.finish h2{font-size:24px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+.kv span{color:var(--ink-3)}
+
+/* codes */
+.codes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel p{margin:0;color:var(--ink-2);font-size:14px}
+.tbl-wrap{overflow-x:auto}
+table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;vertical-align:top}
+.tbl th{font-size:12px;color:var(--ink-3);font-weight:700;letter-spacing:.04em}
+.tbl td.mono{white-space:nowrap}
+.x{border:0;background:none;color:var(--ink-3);padding:2px 6px;border-radius:6px;font-size:18px;line-height:1}
+.search{min-height:44px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2);padding:0 12px;width:100%}
+
+/* tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
+.tabbar .in{display:grid;grid-template-columns:repeat(3,1fr);width:100%;max-width:600px}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 10px;font-size:12.5px;color:var(--ink-3);font-weight:500}
+.tab svg{width:24px;height:24px}
+.tab[aria-current="page"]{color:var(--ink);font-weight:700}
+.tab[aria-current="page"] svg{color:var(--ink)}
+.tab .badge{font-family:var(--f-mono);font-size:11px;background:var(--plate);color:var(--plate-ink);border-radius:5px;padding:0 5px;margin-left:3px}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:60;background:rgba(10,12,14,.55);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.sheet .box{background:var(--surface);color:var(--ink);border-radius:16px;width:100%;max-width:520px;padding:20px;display:flex;flex-direction:column;gap:14px;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.sheet h3{font-size:19px}
+.sheet .body{font-size:15px;color:var(--ink-2);display:flex;flex-direction:column;gap:10px}
+.sheet .body b{color:var(--ink)}
+.sheet input[type=text],.sheet input[type=number]{min-height:52px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2);padding:0 14px;width:100%;font-size:18px}
+.reasons{display:flex;flex-wrap:wrap;gap:6px}
+.reasons label{display:inline-flex}
+.reasons input{position:absolute;opacity:0;pointer-events:none}
+.reasons span{padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-size:14px;cursor:pointer}
+.reasons input:checked+span{background:var(--btn-bg);color:var(--btn-fg);border-color:var(--btn-bg)}
+.reasons input:focus-visible+span{outline:3px solid var(--plate);outline-offset:2px}
+.sheet .acts{display:flex;flex-direction:column;gap:8px}
+
+/* toast */
+.toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:80;background:var(--btn-bg);color:var(--btn-fg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);box-shadow:var(--shadow);text-align:center}
+
+/* scanner: single dark world by design */
+.scanner{position:fixed;inset:0;z-index:50;background:#0B0D0F;color:#F2F3F0;display:flex;flex-direction:column}
+.scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scanner .aim{position:absolute;left:7%;right:7%;top:39%;height:20%;border:3px solid rgba(255,255,255,.85);border-radius:14px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);transition:border-color .15s}
+.scanner .aim::after{content:"";position:absolute;left:6%;right:6%;top:50%;height:2px;background:#F4C21B;opacity:.9}
+.scanner .aim.hit{border-color:#56C584}
+.scanner .aim.miss{border-color:#F27A6B}
+.scanner .top{position:relative;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;gap:10px}
+.scanner .top .hint{font-size:14px;opacity:.9}
+.scanner .close{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;min-height:44px;padding:0 18px;font-weight:700;white-space:nowrap}
+.scanner .close[aria-pressed="true"]{background:#F4C21B;color:#15181B}
+.scanner .bottom{position:relative;margin-top:auto;padding:14px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;background:linear-gradient(transparent,rgba(0,0,0,.75) 30%)}
+.scanner .mini{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:#1A1D20;border-radius:12px;padding:10px 12px}
+.scanner .mini .l{background:#F4C21B;color:#15181B;font-family:var(--f-plate);font-weight:700;font-size:28px;line-height:1;padding:6px 10px;border-radius:6px}
+.scanner .mini .l.none{background:#2F3438;color:#B3B9B2;font-family:var(--f-body);font-size:13px;padding:8px 10px}
+.scanner .mini .n{font-size:14px;line-height:1.3;min-width:0}
+.scanner .mini .n small{display:block;font-family:var(--f-mono);color:#9AA19A;font-size:12px}
+.scanner .mini .q{font-family:var(--f-mono);font-size:22px}
+.scanner .status{min-height:48px;border-radius:12px;padding:10px 14px;font-size:14.5px;background:rgba(255,255,255,.1)}
+.scanner .status.ok{background:#15301F;color:#8FE0AE}
+.scanner .status.bad{background:#3B1B18;color:#FFB0A5}
+.scanner .status.warn{background:#382813;color:#FFD08F}
+.scanner .photo{display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;flex:1;padding:24px;text-align:center;position:relative}
+.scanner .photo p{margin:0;max-width:34ch;color:#C9CEC8;font-size:15px}
+.scanner .shoot{background:#F4C21B;color:#15181B;border:0;border-radius:14px;min-height:64px;padding:0 28px;font-size:18px;font-weight:700;display:inline-flex;gap:10px;align-items:center}
+.scanner .shoot svg{width:24px;height:24px}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+@media (min-width:720px){ .pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start} }
+</style>
+
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><i aria-hidden="true"></i><span>오더피킹</span></div>
+  <button id="syncPill" class="pill tap" type="button" title="저장 위치"><span class="dot"></span><span id="syncText">연결 중</span></button>
+  <button id="workerPill" class="pill tap" type="button" title="작업자 이름 바꾸기">작업자 설정</button>
+</header>
+
+<main>
+  <section id="view-board" class="wrap section" aria-label="전표 현황"></section>
+  <section id="view-pick" class="wrap" aria-label="피킹" hidden></section>
+  <section id="view-codes" class="wrap section" aria-label="바코드" hidden></section>
+</main>
+
+<nav class="tabbar" aria-label="화면 이동">
+  <div class="in">
+    <button class="tab" type="button" data-tab="board" id="tab-board">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5"/></svg>
+      <span>전표 현황</span>
+    </button>
+    <button class="tab" type="button" data-tab="pick" id="tab-pick">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>
+      <span>피킹<span id="pickBadge"></span></span>
+    </button>
+    <button class="tab" type="button" data-tab="codes" id="tab-codes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5v14M7 5v14M10.5 5v14M13 5v14M17 5v14M20 5v14" stroke-linecap="round"/></svg>
+      <span>재고 조회</span>
+    </button>
+  </div>
+</nav>
+
+<div id="scanner" class="scanner" hidden>
+  <video id="video" playsinline muted></video>
+  <div id="aim" class="aim" hidden></div>
+  <div class="top">
+    <span class="hint" id="scanHint">바코드를 노란 선에 비추세요</span>
+    <span class="row" style="flex-wrap:nowrap">
+      <button class="close" type="button" id="torchBtn" hidden aria-pressed="false">플래시</button>
+      <button class="close" type="button" id="scanClose">닫기</button>
+    </span>
+  </div>
+  <div id="photoBox" class="photo" hidden>
+    <p id="photoMsg">이 화면에서는 실시간 카메라를 쓸 수 없어요.</p>
+    <p id="photoHelp" style="font-size:13.5px"></p>
+    <button class="shoot" type="button" id="shootBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      임시로 사진 찍어 읽기
+    </button>
+  </div>
+  <div class="bottom">
+    <div id="scanStatus" class="status">상품 바코드를 비추면 자동으로 담겨요.</div>
+    <div id="scanMini" class="mini"></div>
+  </div>
+</div>
+
+<div id="sheet" class="sheet" hidden><div class="box" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" id="sheetBox"></div></div>
+<div id="toast" class="toast" hidden role="status"></div>
+<input type="file" id="fileSlip" accept=".xlsx,.xls,.csv" multiple hidden>
+<input type="file" id="fileCodes" accept=".xlsx,.xls,.csv" hidden>
+<input type="file" id="fileStock" accept=".xlsx,.xls,.csv" hidden>
+<input type="file" id="filePhoto" accept="image/*" capture="environment" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+/* 구글 시트 웹 앱 주소. 비워 두면 링크의 ?api=주소 로 한 번 받아 폰에 기억해요. (Apps Script 안에서는 필요 없어요) */
+const OPK_API_URL = '';
+(() => {
+'use strict';
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const coll = new Intl.Collator('ko', {numeric:true, sensitivity:'base'});
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+function merge(a, b){
+  const out = isObj(a) ? {...a} : {};
+  for (const k in b){ out[k] = isObj(b[k]) && isObj(out[k]) ? merge(out[k], b[k]) : (isObj(b[k]) ? merge({}, b[k]) : b[k]); }
+  return out;
+}
+const pad = n => String(n).padStart(2, '0');
+function fmtTime(t){ if (!t) return ''; const d = new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtFull(t){ if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function mins(a, b){ if (!a || !b) return ''; const m = Math.max(1, Math.round((b - a) / 60000)); return m >= 60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${m}분`; }
+const normBc = v => String(v ?? '').replace(/\s+/g, '').trim();
+const safeId = s => { let id = String(s).trim().replace(/[^A-Za-z0-9_\-.~:@+]/g, '_').slice(0, 120); if (!id || id === '.' || id === '..') id = 'slip_' + Date.now(); return id; };
+const shardOf = bc => 'b' + (/\d$/.test(bc) ? bc.slice(-1) : 'x');
+
+/* ---------- feedback ---------- */
+let actx = null;
+function beep(ok){
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const tones = ok ? [[1320, 0, .09]] : [[220, 0, .14], [180, .18, .18]];
+    tones.forEach(([f, at, dur]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = ok ? 'sine' : 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, actx.currentTime + at);
+      g.gain.exponentialRampToValueAtTime(ok ? .35 : .18, actx.currentTime + at + .01);
+      g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + at + dur);
+      o.connect(g).connect(actx.destination); o.start(actx.currentTime + at); o.stop(actx.currentTime + at + dur + .02);
+    });
+  } catch(e){}
+  try { navigator.vibrate && navigator.vibrate(ok ? 40 : [90, 60, 90]); } catch(e){}
+}
+let toastT = 0;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ---------- dialog (bottom sheet) ---------- */
+let sheetResolve = null;
+function ask({title, body = '', html = '', actions = [{label:'확인', value:true, kind:'primary'}]}){
+  return new Promise(res => {
+    if (sheetResolve) sheetResolve(null);
+    sheetResolve = res;
+    scanner.paused = true;
+    const box = $('#sheetBox');
+    box.innerHTML = `<h3 id="sheetTitle">${esc(title)}</h3>${body || html ? `<div class="body">${body ? `<div>${body}</div>` : ''}${html}</div>` : ''}
+      <div class="acts">${actions.map((a, i) => `<button type="button" class="btn ${a.kind || ''} ${i === 0 ? 'big' : ''}" data-i="${i}">${esc(a.label)}</button>`).join('')}</div>`;
+    $('#sheet').hidden = false;
+    box.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
+      const a = actions[+b.dataset.i];
+      const v = typeof a.value === 'function' ? a.value(box) : a.value;
+      if (v === undefined) return; // validation failed, keep open
+      close(v);
+    });
+    const first = box.querySelector('input') || box.querySelector('[data-i="0"]');
+    setTimeout(() => first && first.focus(), 30);
+    function close(v){ $('#sheet').hidden = true; box.innerHTML = ''; sheetResolve = null; setTimeout(() => scanner.paused = false, 350); res(v); }
+    $('#sheet').onclick = e => { if (e.target.id === 'sheet') close(null); };
+  });
+}
+
+/* ---------- store: 구글 시트(sheet) · claude 공유(claude) · 이 기기(local) ---------- */
+const okApi = u => typeof u === 'string' && (/^https:\/\/script\.google(usercontent)?\.com\//.test(u) || /^\/[^/]/.test(u));
+let API_URL = OPK_API_URL;
+try {
+  const q = new URLSearchParams(location.search).get('api');
+  if (q && okApi(q)) { LS.set('opk.api', q); history.replaceState(null, '', location.pathname + location.hash); }
+  if (!API_URL) API_URL = LS.get('opk.api', '');
+} catch(e){}
+const store = { mode:'local', shared:false, db:null, ready:false, slips:{}, progress:{}, codes:{}, sheetUrl:'', stockInfo:null };
+const expandCodes = raw => { const o = {}; for (const bc in raw) { const v = raw[bc]; o[bc] = Array.isArray(v) ? {c:v[0], n:v[1] || ''} : v; } return o; };
+function saveCodesCache(){ try { localStorage.setItem('opk.codesCache', JSON.stringify({v:GS.codesVer, m:store.codes})); } catch(e){} }
+function loadCodesCache(){ try { const c = JSON.parse(localStorage.getItem('opk.codesCache') || 'null'); if (c && c.v && c.m) { store.codes = c.m; GS.codesVer = c.v; } } catch(e){} }
+function loadLocal(){
+  store.slips = LS.get('opk.slips', {}); store.progress = LS.get('opk.progress', {}); store.codes = LS.get('opk.codes', {});
+}
+function saveLocal(){ if (store.shared) return; LS.set('opk.slips', store.slips); LS.set('opk.progress', store.progress); LS.set('opk.codes', store.codes); }
+function setSync(mode){
+  const p = $('#syncPill'), t = $('#syncText');
+  p.classList.toggle('live', mode === 'live' || mode === 'sheet');
+  t.textContent = mode === 'sheet' ? '구글 시트 연결' : mode === 'live' ? '실시간 공유' : mode === 'error' ? '연결 끊김' : mode === 'wait' ? '연결 중' : '이 기기에만 저장';
+  p.title = mode === 'sheet' ? '모든 기록이 구글 시트에 저장되고, 몇 초마다 다른 사람의 작업이 반영돼요'
+    : mode === 'live' ? '같은 페이지를 연 사람들과 현황이 바로 공유돼요'
+    : mode === 'error' ? '잠시 연결이 끊겼어요. 자동으로 다시 시도해요' : '공유 저장소를 쓸 수 없어 이 기기 브라우저에만 저장돼요';
+}
+function writeErr(e){
+  const code = e && e.code;
+  if (code === 'quota_exceeded') toast('저장 공간이 가득 찼어요. 끝난 전표를 몇 개 지워 주세요.');
+  else toast('저장하지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.');
+}
+
+/* 구글 시트: Apps Script 안에서 열리면 google.script.run, 다른 곳에 올리면 OPK_API_URL 로 호출 */
+const GS = { ver:'', codesVer:'', q:Promise.resolve(), pending:0, seq:0, timer:0, fails:0 };
+const inAppsScript = () => !!(window.google && window.google.script && window.google.script.run);
+function gsCall(action, data){
+  if (inAppsScript()) return new Promise((res, rej) => window.google.script.run.withSuccessHandler(res).withFailureHandler(rej).api(action, data || {}));
+  return fetch(API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action, data: data || {}})})
+    .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.message || '요청 실패'); return j.result; });
+}
+function gsWrite(action, data){ // 쓰기는 보낸 순서대로 하나씩
+  GS.pending++; GS.seq++;
+  const job = GS.q.then(() => gsCall(action, data))
+    .catch(e => { writeErr(e); GS.ver = ''; })
+    .finally(() => { GS.pending--; if (!GS.pending) gsSoon(250); });
+  GS.q = job; return job;
+}
+function gsSoon(ms){ clearTimeout(GS.timer); GS.timer = setTimeout(gsSync, ms); }
+async function gsSync(){
+  clearTimeout(GS.timer);
+  if (GS.pending) return gsSoon(800);
+  const seq = GS.seq;
+  try {
+    const r = await gsCall('sync', {ver:GS.ver, codesVer:GS.codesVer});
+    GS.fails = 0;
+    if (seq === GS.seq && !GS.pending) {
+      if (r.slips) { store.slips = r.slips; store.progress = r.progress; }
+      if (r.codes) { store.codes = expandCodes(r.codes); GS.codesVer = r.codesVer; saveCodesCache(); }
+      if (r.stockInfo) store.stockInfo = r.stockInfo;
+      GS.ver = r.ver;
+      store.sheetUrl = r.sheetUrl || ''; store.ready = true; setSync('sheet');
+      if (r.slips || r.codes) render();
+    }
+  } catch(e){ GS.fails++; setSync('error'); }
+  if (seq !== GS.seq || GS.pending) return gsSoon(400);
+  gsSoon(document.hidden ? 30000 : Math.min(30000, 6000 * (1 + GS.fails)));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && store.mode === 'sheet') gsSoon(100); });
+
+async function initStore(){
+  if (inAppsScript() || API_URL) {
+    store.mode = 'sheet'; store.shared = true; loadCodesCache(); setSync('wait'); render();
+    await gsSync(); return;
+  }
+  loadLocal(); setSync('local'); render();
+  if (!window.claude || typeof window.claude.use !== 'function') { store.ready = true; render(); return; }
+  let db = null;
+  try { db = await window.claude.use('db'); } catch(e){ db = null; }
+  if (!db) { store.ready = true; render(); return; }
+  store.mode = 'claude'; store.db = db; store.shared = true; store.slips = {}; store.progress = {}; store.codes = {};
+  setSync('live');
+  const onErr = () => setSync('error');
+  db.collection('slips').onSnapshot(snap => {
+    const o = {}; snap.docs.forEach(d => { if (d.exists) o[d.id] = d.data(); }); store.slips = o; store.ready = true; render();
+  }, onErr);
+  db.collection('progress').onSnapshot(snap => {
+    const o = {}; snap.docs.forEach(d => { if (d.exists) o[d.id] = d.data(); }); store.progress = o; render();
+  }, onErr);
+  db.collection('barcodes').onSnapshot(snap => {
+    const o = {};
+    snap.docs.forEach(d => { if (!d.exists) return; const m = d.data().map || {}; for (const k in m) if (m[k]) o[k] = m[k]; });
+    store.codes = o; render();
+  }, onErr);
+}
+async function upsert(path, patch){
+  const ref = store.db.doc(path);
+  try { await ref.update(patch); }
+  catch(e){ if (e && e.code === 'invalid_argument') await ref.set(patch); else throw e; }
+}
+async function putSlip(slip, replace){
+  store.slips = {...store.slips, [slip.id]: slip};
+  if (replace) { const p = {...store.progress}; delete p[slip.id]; store.progress = p; }
+  render();
+  if (store.mode === 'sheet') return gsWrite('putSlip', {slip, replace: !!replace});
+  if (store.mode === 'claude') { try { if (replace) await store.db.doc('progress/' + slip.id).delete(); await store.db.doc('slips/' + slip.id).set(slip); } catch(e){ writeErr(e); } }
+  else saveLocal();
+}
+async function putProgress(id, patch){
+  store.progress = {...store.progress, [id]: merge(store.progress[id] || {}, patch)}; render();
+  if (store.mode === 'sheet') return gsWrite('setProgress', {id, patch});
+  if (store.mode === 'claude') { try { await upsert('progress/' + id, patch); } catch(e){ writeErr(e); } }
+  else saveLocal();
+}
+async function removeSlip(id){
+  const s = {...store.slips}; delete s[id]; store.slips = s;
+  const p = {...store.progress}; delete p[id]; store.progress = p; render();
+  if (store.mode === 'sheet') return gsWrite('deleteSlip', {id});
+  if (store.mode === 'claude') { try { await store.db.doc('slips/' + id).delete(); await store.db.doc('progress/' + id).delete(); } catch(e){ writeErr(e); } }
+  else saveLocal();
+}
+async function addCodes(entries){ // {barcode: {c, n, w, t}} ; value null = remove
+  const c = {...store.codes};
+  for (const k in entries) { if (entries[k]) c[k] = entries[k]; else delete c[k]; }
+  store.codes = c; render();
+  if (store.mode === 'sheet') {
+    const keys = Object.keys(entries); let last = null;
+    for (let i = 0; i < keys.length; i += 1500) { const part = {}; keys.slice(i, i + 1500).forEach(k => part[k] = entries[k]); last = await gsWrite('addCodes', {map: part}); }
+    if (last && last.codesVer) { GS.codesVer = last.codesVer; saveCodesCache(); }
+    return;
+  }
+  if (store.mode !== 'claude') { saveLocal(); return; }
+  const byShard = {};
+  for (const k in entries) (byShard[shardOf(k)] ||= {})[k] = entries[k];
+  try { for (const s in byShard) await upsert('barcodes/' + s, {map: byShard[s]}); } catch(e){ writeErr(e); }
+}
+function itemCodes(){ const m = {}; for (const bc in store.codes) { const v = store.codes[bc]; if (v && v.c) (m[v.c] ||= []).push(bc); } return m; }
+
+/* ---------- excel parsing ---------- */
+function splitLoc(v){
+  const parts = [...new Set(String(v ?? '').split('/').map(s => s.trim()).filter(Boolean))];
+  return {loc: parts[0] || '', alt: parts.slice(1).join(', ')};
+}
+function sortLines(lines){
+  return lines.map((l, i) => ({...l, _i:i}))
+    .sort((a, b) => (!a.loc - !b.loc) || coll.compare(a.loc, b.loc) || a._i - b._i)
+    .map((l, k) => { const {_i, ...rest} = l; return {...rest, k}; });
+}
+function sheetRows(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, blankrows:false}); }
+function parseSlips(wb, fileName){
+  const out = [];
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const hi = rows.findIndex(r => r.some(c => String(c).trim() === '품목코드'));
+    if (hi < 0) return;
+    const head = rows[hi].map(c => String(c).trim());
+    const col = key => head.findIndex(h => h === key || h.startsWith(key));
+    const cSeq = col('순번'), cLoc = col('로케이션'), cCode = col('품목코드'), cName = col('품목명'), cQty = col('수량');
+    const cLot = head.findIndex(h => h.includes('시리얼') || h.includes('로트')), cMemo = col('적요');
+    const meta = {};
+    rows.slice(0, hi).forEach(r => r.forEach(c => {
+      const m = String(c).match(/^\s*([가-힣A-Za-z ]+?)\s*[:：]\s*(.*)$/); if (m) meta[m[1].trim()] = m[2].trim();
+    }));
+    const lines = [];
+    let printed = '';
+    for (let i = hi + 1; i < rows.length; i++){
+      const r = rows[i]; const first = String(r[0] ?? '').trim();
+      if (/^\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2}/.test(first)) { printed = first.replace(/\s+/g, ' '); continue; }
+      if (first === '합계') continue;
+      const code = String(r[cCode] ?? '').trim(); if (!code) continue;
+      const qty = Number(String(r[cQty] ?? '').replace(/,/g, '')) || 0;
+      const {loc, alt} = splitLoc(cLoc >= 0 ? r[cLoc] : '');
+      lines.push({ seq: String(cSeq >= 0 && r[cSeq] !== '' ? r[cSeq] : lines.length + 1).trim(), loc, alt, code,
+        name: String(cName >= 0 ? r[cName] : '').trim(), qty,
+        lot: cLot >= 0 ? String(r[cLot] ?? '').trim() : '', memo: cMemo >= 0 ? String(r[cMemo] ?? '').trim() : '' });
+    }
+    if (!lines.length) return;
+    const base = fileName.replace(/\.[^.]+$/, '');
+    const no = meta['전표번호'] || (wb.SheetNames.length > 1 ? `${base}-${sn}` : base);
+    out.push({ id: safeId(no), no, kind: String(rows[0]?.[0] ?? '').trim() || '전표', from: meta['출고창고'] || '', to: meta['입고창고'] || '',
+      printed, lines: sortLines(lines), uploadedAt: Date.now(), uploadedBy: worker() || '' });
+  });
+  return out;
+}
+const cell = v => { const t = String(v ?? '').trim(); return t === '.' || t === '-' ? '' : t; };
+const stockLoc = v => String(v ?? '').split('/').map(t => t.trim()).filter(Boolean).join(' / ');
+/* 재고현황 엑셀 → [바코드, 품목코드, 품목명, 규격, 사이즈, 재고수량, 미판매, 미입고, 로케이션, 적요, 기준시각] */
+function parseStock(wb){
+  const rowsOut = []; const meta = {}; let skipped = 0;
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const hi = rows.findIndex(r => r.some(c => cell(c) === '품목코드') && r.some(c => cell(c).includes('재고수량')));
+    if (hi < 0) return;
+    const head = rows[hi].map(cell);
+    const like = (...keys) => head.findIndex(h => keys.some(k => h.includes(k)));
+    const cBc = like('바코드'), cCode = head.indexOf('품목코드'), cName = like('품목명'), cSpec = like('규격'),
+      cSize = like('사이즈'), cQty = like('재고수량'), cUn = like('미판매'), cIn = like('미입고'),
+      cLoc = like('창고번호', '로케이션', '위치'), cMemo = like('적요');
+    const top = rows.slice(0, hi).map(r => r.join(' ')).join(' ');
+    const md = top.match(/(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
+    if (md && !meta.at) meta.at = `${md[1]}-${String(md[2]).padStart(2, '0')}-${String(md[3]).padStart(2, '0')}`;
+    const wh = top.split('/').map(x => x.trim()).find(x => x.includes('창고'));
+    if (wh && !meta.wh) meta.wh = wh;
+    const num = v => { const t = cell(v).replace(/,/g, ''); if (!t) return ''; const n = Number(t); return isFinite(n) ? n : ''; };
+    for (let i = hi + 1; i < rows.length; i++){
+      const r = rows[i]; const code = cell(r[cCode]); if (!code) continue;
+      let bc = cBc >= 0 ? normBc(r[cBc]) : '';
+      if (bc && !/^[0-9]{6,14}$/.test(bc)) { skipped++; bc = ''; }
+      rowsOut.push([bc, code, cell(r[cName]), cell(r[cSpec]), cell(r[cSize]), num(r[cQty]), num(r[cUn]), num(r[cIn]),
+        cLoc >= 0 ? stockLoc(r[cLoc]) : '', cell(r[cMemo]), meta.at || '']);
+    }
+  });
+  return {rows: rowsOut, meta, skipped};
+}
+function parseCodeBook(wb){
+  const out = {}; let skipped = 0;
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const hi = rows.findIndex(r => r.some(c => String(c).includes('바코드')) && r.some(c => String(c).includes('품목코드') || String(c).trim() === '코드'));
+    if (hi < 0) return;
+    const head = rows[hi].map(c => String(c).trim());
+    const cBc = head.findIndex(h => h.includes('바코드'));
+    let cCode = head.findIndex(h => h === '품목코드'); if (cCode < 0) cCode = head.findIndex(h => h.includes('품목코드') || h === '코드');
+    const cName = head.findIndex(h => h.includes('품목명'));
+    for (let i = hi + 1; i < rows.length; i++){
+      const r = rows[i]; const code = String(r[cCode] ?? '').trim();
+      const cells = String(r[cBc] ?? '').split(/[,;\n]/).map(normBc).filter(Boolean);
+      if (!code || !cells.length) continue;
+      cells.forEach(bc => { if (/e\+/i.test(bc)) { skipped++; return; } out[bc] = {c: code, n: cName >= 0 ? String(r[cName] ?? '').trim() : '', t: Date.now()}; });
+    }
+  });
+  return {map: out, skipped};
+}
+function readFile(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => { try { res(XLSX.read(new Uint8Array(fr.result), {type:'array'})); } catch(e){ rej(e); } };
+    fr.onerror = () => rej(fr.error); fr.readAsArrayBuffer(file);
+  });
+}
+
+/* ---------- progress helpers ---------- */
+const worker = () => LS.get('opk.worker', '');
+function info(slip, prog, k){
+  const l = slip.lines[k]; const pl = (prog && prog.lines && prog.lines[k]) || {};
+  const p = pl.p || 0; const s = pl.s || (l.qty <= 0 || p >= l.qty ? (p > 0 || l.qty <= 0 ? 'done' : '') : '');
+  return {l, p, s, r: pl.r || ''};
+}
+function stats(slip, prog){
+  let done = 0, short = 0, pq = 0, tq = 0;
+  slip.lines.forEach(l => { const i = info(slip, prog, l.k); if (i.s === 'done') done++; if (i.s === 'short') short++; pq += Math.min(i.p, l.qty); tq += l.qty; });
+  return {done, short, pending: slip.lines.length - done - short, n: slip.lines.length, pq, tq};
+}
+function slipState(slip, prog){
+  const st = stats(slip, prog);
+  if (!prog || !prog.status) return {key:'wait', label:'대기', st};
+  if (prog.status === 'done') return st.short ? {key:'short', label:`완료 · 부족 ${st.short}`, st} : {key:'done', label:'완료', st};
+  return {key:'run', label:'피킹 중', st};
+}
+
+/* ---------- ui state ---------- */
+const ui = { view: LS.get('opk.view', 'board'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false };
+function go(view){ ui.view = view; LS.set('opk.view', view); render(); window.scrollTo({top:0}); }
+const curSlip = () => store.slips[ui.slipId];
+const curProg = () => store.progress[ui.slipId];
+function nextPending(){
+  const slip = curSlip(); if (!slip) return -1; const prog = curProg();
+  const open = slip.lines.filter(l => !info(slip, prog, l.k).s);
+  if (!open.length) return -1;
+  const first = open.find(l => !ui.skipped.has(l.k));
+  return (first || open[0]).k;
+}
+function ensureCur(){
+  const slip = curSlip(); if (!slip) { ui.cur = -1; return; }
+  if (ui.cur >= 0 && slip.lines[ui.cur] && !info(slip, curProg(), ui.cur).s) return;
+  ui.cur = nextPending();
+}
+
+/* ---------- icons ---------- */
+const I = {
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8" stroke-linecap="round"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>'
+};
+
+/* ---------- render ---------- */
+function render(){
+  ['board', 'pick', 'codes'].forEach(v => {
+    $('#view-' + v).hidden = ui.view !== v;
+    $('#tab-' + v).setAttribute('aria-current', ui.view === v ? 'page' : 'false');
+  });
+  const w = worker(); $('#workerPill').textContent = w ? `작업자 ${w}` : '작업자 설정';
+  const slip = curSlip();
+  if (slip) { const st = stats(slip, curProg()); $('#pickBadge').innerHTML = st.pending ? `<span class="badge">${st.pending}</span>` : ''; }
+  else $('#pickBadge').innerHTML = '';
+  if (ui.view === 'board') renderBoard();
+  else if (ui.view === 'pick') renderPick();
+  else renderCodes();
+  if (!$('#scanner').hidden) renderMini();
+}
+
+function renderBoard(){
+  const el = $('#view-board');
+  const list = Object.values(store.slips).sort((a, b) => {
+    const ra = slipState(a, store.progress[a.id]).key, rb = slipState(b, store.progress[b.id]).key;
+    const order = {run:0, wait:1, short:2, done:3};
+    return (order[ra] - order[rb]) || coll.compare(b.no, a.no);
+  });
+  const cnt = {wait:0, run:0, done:0};
+  list.forEach(s => { const k = slipState(s, store.progress[s.id]).key; cnt[k === 'short' ? 'done' : k]++; });
+  el.innerHTML = `
+    <div class="board-head">
+      <div><div class="eyebrow">창고이동 전표</div><h2>오늘 피킹할 전표</h2></div>
+      <div class="tally"><div><b>${cnt.wait}</b>대기</div><div><b>${cnt.run}</b>피킹 중</div><div><b>${cnt.done}</b>완료</div></div>
+    </div>
+    <button class="btn primary big" type="button" id="upSlip">${I.up}전표 엑셀 올리기</button>
+    ${store.sheetUrl ? `<a class="btn" href="${esc(store.sheetUrl)}" target="_blank" rel="noopener">구글 시트에서 전체 기록 보기</a>` : ''}
+    ${!store.ready ? '<p class="muted">전표를 불러오는 중…</p>' : list.length ? `<div class="slips">${list.map(slipCard).join('')}</div>` : `
+      <div class="empty"><b>아직 올린 전표가 없어요</b><span>창고이동 전표 엑셀(예: ESM003E.xlsx)을 올리면 로케이션 순서대로 피킹 목록이 만들어져요.</span></div>`}
+    <div class="eyebrow" style="margin-top:8px">처음 쓰는 방법</div>
+    <ol class="steps">
+      <li>전표 엑셀을 올려요. 여러 파일을 한 번에 골라도 돼요.</li>
+      <li>전표를 누르면 가까운 로케이션부터 피킹 순서가 나와요.</li>
+      <li>위치로 가서 상품 바코드를 찍으면 수량이 채워지고 다음 위치로 넘어가요.</li>
+      <li>다 담으면 완료를 누르고, 필요하면 결과 엑셀을 받아요.</li>
+    </ol>`;
+  $('#upSlip').onclick = () => $('#fileSlip').click();
+  el.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => openSlip(b.dataset.slip));
+}
+function slipCard(s){
+  const prog = store.progress[s.id]; const ss = slipState(s, prog); const st = ss.st;
+  const dw = st.n ? (st.done / st.n * 100) : 0, sw = st.n ? (st.short / st.n * 100) : 0;
+  const who = prog && prog.worker ? `${esc(prog.worker)} · ${prog.status === 'done' ? '완료 ' + fmtTime(prog.finishedAt) : '최근 ' + fmtTime(prog.updatedAt)}` : `올린 시각 ${fmtTime(s.uploadedAt)}`;
+  return `<button class="slip" type="button" data-slip="${esc(s.id)}">
+    <div class="slip-top"><span class="slip-no">${esc(s.no)}</span><span class="chip ${ss.key}">${esc(ss.label)}</span></div>
+    <div class="route"><span>출고</span><b>${esc(s.from || '-')}</b><span>입고</span><b>${esc(s.to || '-')}</b></div>
+    <div class="bar" aria-hidden="true"><i class="d" style="width:${dw}%"></i><i class="s" style="width:${sw}%"></i></div>
+    <div class="slip-foot"><span class="mono">${st.done + st.short} / ${st.n} 품목 · 수량 ${st.pq}/${st.tq}</span><span>${who}</span></div>
+  </button>`;
+}
+
+function renderPick(){
+  const el = $('#view-pick'); const slip = curSlip();
+  if (!slip) {
+    el.innerHTML = `<div class="section"><div class="empty"><b>피킹할 전표를 먼저 골라 주세요</b><button class="btn primary" type="button" id="toBoard">전표 현황으로</button></div></div>`;
+    $('#toBoard').onclick = () => go('board'); return;
+  }
+  const prog = curProg(); ensureCur();
+  const st = stats(slip, prog); const map = itemCodes();
+  const dw = st.n ? st.done / st.n * 100 : 0, sw = st.n ? st.short / st.n * 100 : 0;
+  let main = '';
+  if (ui.cur < 0) {
+    const shorts = slip.lines.filter(l => info(slip, prog, l.k).s === 'short');
+    const isDone = prog && prog.status === 'done';
+    main = `<div class="card"><div class="finish">
+      <div class="eyebrow">${isDone ? '완료된 전표' : '모든 품목 확인 끝'}</div>
+      <h2>${shorts.length ? `부족 ${shorts.length}건 포함, 피킹을 마쳤어요` : '전 품목을 다 담았어요'}</h2>
+      <div class="kv"><span>작업자</span><b>${esc(prog && prog.worker || '-')}</b><span>시작</span><b>${fmtFull(prog && prog.startedAt)}</b>
+        ${isDone ? `<span>완료</span><b>${fmtFull(prog.finishedAt)} (${mins(prog.startedAt, prog.finishedAt)})</b>` : ''}</div>
+      ${shorts.length ? `<div class="banner warn"><div><b>부족·결품 품목</b>${shorts.map(l => { const i = info(slip, prog, l.k); return `${esc(l.name)} — ${i.p}/${l.qty}${i.r ? ' · ' + esc(i.r) : ''}`; }).join('<br>')}</div></div>` : ''}
+      ${isDone ? `<button class="btn primary big" type="button" id="exportRes">${I.down}결과 엑셀 받기</button>
+        <button class="btn" type="button" id="reopen">다시 열어서 수정하기</button>`
+      : `<button class="btn primary big" type="button" id="finishBtn">피킹 완료 처리</button>
+        <button class="btn" type="button" id="exportRes">${I.down}결과 엑셀 받기</button>`}
+    </div></div>`;
+  } else {
+    const i = info(slip, prog, ui.cur); const l = i.l; const bcs = map[l.code] || [];
+    const verified = i.p > 0;
+    main = `<div class="card" aria-live="polite">
+      <div class="plate ${l.loc || l.sloc ? '' : 'none'}"><div class="lbl">${l.loc ? '가야 할 위치' : l.sloc ? '전표에 위치 없음 · 재고표 위치' : '로케이션 없음'}</div>
+        <div class="loc">${esc(l.loc || l.sloc || '품목명으로 찾기')}</div>${l.alt ? `<div class="alt">보조 위치 ${esc(l.alt)}</div>` : ''}</div>
+      <div class="item">
+        <div class="name">${esc(l.name)}</div>
+        <div class="meta"><span class="code">${esc(l.code)}</span><span>전표 순번 ${esc(l.seq)}</span>
+          ${bcs.length ? `<span class="mono">바코드 ${esc(bcs[0])}${bcs.length > 1 ? ` 외 ${bcs.length - 1}` : ''}</span>` : `<span class="chip short">바코드 미등록 · 찍으면 등록돼요</span>`}</div>
+        ${l.stk !== '' && l.stk !== undefined || l.spec || l.size || (store.stockInfo && store.stockInfo.n) ? `<div class="meta">
+          ${l.stk !== '' && l.stk !== undefined ? `<span class="chip ${Number(l.stk) < l.qty ? 'short' : 'wait'}">전산 재고 ${esc(l.stk)}개</span>` : store.stockInfo && store.stockInfo.n ? `<span class="muted">재고표에 없는 품목</span>` : ''}
+          ${l.spec ? `<span>박스 ${esc(l.spec)}</span>` : ''}${l.size ? `<span>${esc(l.size)}</span>` : ''}</div>` : ''}
+        ${l.lot || l.memo ? `<div class="meta">${l.lot ? `<span>로트 ${esc(l.lot)}</span>` : ''}${l.memo ? `<span>적요 ${esc(l.memo)}</span>` : ''}</div>` : ''}
+      </div>
+      <div class="qty"><b>${i.p}</b><span>/ ${l.qty}</span><em>${l.qty - i.p > 0 ? `${l.qty - i.p}개 더 담기` : ''}</em></div>
+      <div class="actions">
+        ${ui.last ? `<div class="banner ${ui.last.kind}"><div><b>${esc(ui.last.title)}</b>${ui.last.detail ? `<span class="mono">${esc(ui.last.detail)}</span>` : ''}</div></div>` : ''}
+        <button class="btn primary big" type="button" id="scanBtn">${I.cam}카메라 스캔 켜기</button>
+        ${verified && l.qty - i.p >= 1 ? `<button class="btn" type="button" id="fillRest">같은 상품 나머지 ${l.qty - i.p}개 한 번에 담기</button>` : ''}
+        <form class="manual" id="manualForm" autocomplete="off"><input id="manualBc" inputmode="numeric" placeholder="바코드 번호 직접 입력" aria-label="바코드 번호 직접 입력"><button class="btn" type="submit">확인</button></form>
+        <div class="row">
+          <button class="btn small" type="button" id="plusOne">수동 +1</button>
+          <button class="btn small warn" type="button" id="shortBtn">부족·결품</button>
+          <button class="btn small" type="button" id="skipBtn">나중에</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const open = slip.lines.filter(l => !info(slip, prog, l.k).s).sort((a, b) => (ui.skipped.has(a.k) - ui.skipped.has(b.k)) || a.k - b.k);
+  const closed = slip.lines.filter(l => info(slip, prog, l.k).s);
+  const keepVal = $('#manualBc') ? $('#manualBc').value : '', keepFocus = document.activeElement && document.activeElement.id === 'manualBc';
+  const liHtml = l => { const i = info(slip, prog, l.k);
+    return `<button class="li ${l.k === ui.cur ? 'cur' : ''} ${i.s ? 'done' : ''} ${ui.skipped.has(l.k) && !i.s ? 'skip' : ''}" type="button" data-k="${l.k}">
+      <span class="l ${l.loc || l.sloc ? '' : 'none'}">${esc(l.loc || l.sloc || '위치 없음')}</span>
+      <span class="n">${esc(l.name)}<small>${esc(l.code)}</small></span>
+      <span class="q">${i.s === 'short' ? `<span class="chip short">부족 ${i.p}/${l.qty}</span>` : `${i.p}/${l.qty}`}</span></button>`; };
+  el.innerHTML = `
+    <div class="pickhead">
+      <div class="pickhead-top">
+        <button class="back" type="button" id="backBtn" aria-label="전표 현황으로">${I.back}</button>
+        <div class="t"><b>${esc(slip.no)}</b><span>${esc(slip.from)} → ${esc(slip.to)}</span></div>
+        <div class="count"><b>${st.done + st.short}</b> / ${st.n}</div>
+      </div>
+      <div class="bar" aria-hidden="true"><i class="d" style="width:${dw}%"></i><i class="s" style="width:${sw}%"></i></div>
+    </div>
+    <div class="section pick-grid">
+      <div>${main}</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${open.length ? `<div class="eyebrow">남은 품목 ${open.length} · 위치 순서</div><div class="list">${open.map(liHtml).join('')}</div>` : ''}
+        ${closed.length ? `<details class="done-box" ${open.length ? '' : 'open'}><summary>담은 품목 ${closed.length}</summary><div class="list">${closed.map(liHtml).join('')}</div></details>` : ''}
+        <button class="btn small" type="button" id="delSlip" style="align-self:flex-start;color:var(--ink-3)">이 전표 지우기</button>
+      </div>
+    </div>`;
+  $('#backBtn').onclick = () => go('board');
+  el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => lineMenu(+b.dataset.k));
+  $('#delSlip').onclick = async () => {
+    const ok = await ask({title:'이 전표를 지울까요?', body:`<b>${esc(slip.no)}</b>의 피킹 기록도 함께 지워져요. 모두의 화면에서 사라져요.`, actions:[{label:'지우기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+    if (ok) { await removeSlip(slip.id); ui.slipId = ''; LS.set('opk.slip', ''); go('board'); toast('전표를 지웠어요'); }
+  };
+  if (ui.cur < 0) {
+    const f = $('#finishBtn'); if (f) f.onclick = finishSlip;
+    const r = $('#reopen'); if (r) r.onclick = () => putProgress(slip.id, {status:'picking', updatedAt:Date.now(), finishedAt:null});
+    $('#exportRes').onclick = () => exportResult(slip.id);
+    return;
+  }
+  if (keepVal) $('#manualBc').value = keepVal;
+  if (keepFocus) $('#manualBc').focus();
+  $('#scanBtn').onclick = () => openScanner('pick');
+  const fr = $('#fillRest'); if (fr) fr.onclick = () => { const i = info(slip, prog, ui.cur); addPick(ui.cur, i.l.qty - i.p, 'scan'); };
+  $('#manualForm').onsubmit = e => { e.preventDefault(); const v = $('#manualBc').value; $('#manualBc').value = ''; if (v.trim()) onScan(v); };
+  $('#plusOne').onclick = async () => {
+    const l = slip.lines[ui.cur];
+    const ok = await ask({title:'바코드 없이 담을까요?', body:`<b>${esc(l.name)}</b><br><span class="mono">${esc(l.code)}</span><br>상품이 맞는지 눈으로 한 번 더 확인해 주세요.`, actions:[{label:'맞아요, 1개 담기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+    if (ok) addPick(ui.cur, 1, 'manual');
+  };
+  $('#shortBtn').onclick = () => markShort(ui.cur);
+  $('#skipBtn').onclick = () => { ui.skipped.add(ui.cur); ui.last = null; ui.cur = -1; ui.cur = nextPending(); render(); toast('맨 뒤로 미뤘어요'); };
+}
+
+async function lineMenu(k){
+  const slip = curSlip(); const i = info(slip, curProg(), k);
+  if (!i.s) { ui.cur = k; ui.last = null; render(); window.scrollTo({top:0, behavior:'smooth'}); return; }
+  const v = await ask({title: i.l.name, body:`<span class="mono">${esc(i.l.code)}</span> · ${esc(i.l.loc || '위치 없음')}<br>${i.s === 'short' ? `부족 처리됨 (${i.p}/${i.l.qty})${i.r ? ' · ' + esc(i.r) : ''}` : `담기 완료 (${i.p}/${i.l.qty})`}`,
+    actions:[{label:'처음부터 다시 담기', value:'reset', kind:'primary'}, {label:'부족 수량 고치기', value:'short'}, {label:'닫기', value:null}]});
+  if (v === 'reset') { await putProgress(slip.id, {lines:{[k]: {p:0, s:'', r:'', t:Date.now(), w:worker()}}, updatedAt:Date.now(), status:'picking', finishedAt:null}); ui.cur = k; render(); }
+  if (v === 'short') markShort(k);
+}
+
+function stockRow(r){
+  return `<div class="li" style="grid-template-columns:1fr auto;align-items:flex-start">
+    <span class="n"><b>${esc(r.name || r.code)}</b><small>${esc(r.code)}${r.bc ? ' · ' + esc(r.bc) : ' · 바코드 없음'}</small>
+      ${r.spec || r.size ? `<small>${esc([r.spec ? '박스 ' + r.spec : '', r.size].filter(Boolean).join(' · '))}</small>` : ''}
+      ${r.memo && r.memo !== '.' ? `<small>${esc(r.memo)}</small>` : ''}</span>
+    <span style="text-align:right">
+      <b class="mono" style="font-size:22px;${Number(r.qty) <= 0 ? 'color:var(--bad)' : ''}">${esc(r.qty)}</b>
+      <small class="mono muted" style="display:block">${esc(r.loc || '위치 없음')}</small>
+      ${r.unsold || r.incoming ? `<small class="muted" style="display:block">${r.unsold ? '미판매 ' + r.unsold : ''}${r.unsold && r.incoming ? ' · ' : ''}${r.incoming ? '미입고 ' + r.incoming : ''}</small>` : ''}</span>
+  </div>`;
+}
+async function stockSearch(q){
+  q = String(q || '').trim(); ui.stockErr = '';
+  if (!q) { ui.stockRows = null; render(); return; }
+  if (store.mode !== 'sheet') { ui.stockRows = []; ui.stockErr = '구글 시트에 연결하면 재고를 찾을 수 있어요.'; render(); return; }
+  ui.stockBusy = true; render();
+  try { const r = await gsCall('stockFind', {q, limit:30}); ui.stockRows = r.rows || []; }
+  catch(e){ ui.stockRows = []; ui.stockErr = '재고를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.'; }
+  ui.stockBusy = false; render();
+}
+function renderCodes(){
+  const el = $('#view-codes'); const map = itemCodes(); const si = store.stockInfo;
+  const missing = []; const seen = new Set();
+  Object.values(store.slips).forEach(s => { const p = store.progress[s.id]; if (p && p.status === 'done') return;
+    s.lines.forEach(l => { if (!map[l.code] && !seen.has(l.code)) { seen.add(l.code); missing.push(l); } }); });
+  const rows = ui.stockRows;
+  el.innerHTML = `
+    <div class="board-head">
+      <div><div class="eyebrow">창고 재고</div><h2>재고 조회</h2></div>
+      <div class="tally">
+        <div><b>${(si && si.n ? si.n : 0).toLocaleString()}</b>품목</div>
+        <div><b>${Object.keys(store.codes).length.toLocaleString()}</b>바코드</div>
+        <div><b>${missing.length}</b>바코드 없음</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row" style="flex-wrap:nowrap">
+        <input class="search" id="stockQ" type="search" placeholder="품목명 · 품목코드 · 바코드" value="${esc(ui.stockQ)}" aria-label="재고 검색" style="flex:1 1 auto">
+        <button class="btn" type="button" id="scanLookup" style="flex:0 0 auto">${I.cam}비춰서 찾기</button>
+      </div>
+      ${si && si.at ? `<p>재고 기준 ${esc(si.at)}${si.wh ? ' · ' + esc(si.wh) : ''}</p>` : '<p>아직 재고 파일을 올리지 않았어요.</p>'}
+      ${ui.stockBusy ? '<p>찾는 중…</p>' : ''}
+      ${ui.stockErr ? `<div class="banner bad"><div>${esc(ui.stockErr)}</div></div>` : ''}
+      ${rows ? (rows.length ? `<div class="list">${rows.map(stockRow).join('')}</div>${rows.length >= 30 ? '<p>가장 앞의 30개만 보여요. 검색어를 더 자세히 넣어 주세요.</p>' : ''}`
+        : (!ui.stockBusy && !ui.stockErr ? '<p>찾는 품목이 없어요.</p>' : '')) : ''}
+    </div>
+    <div class="codes-grid">
+      <div class="panel">
+        <h3>재고현황 엑셀 올리기</h3>
+        <p>창고 재고현황 파일을 그대로 올리면 품목·수량·위치가 저장되고, 파일 안의 바코드도 한 번에 등록돼요. 이미 올려둔 전표의 재고 수량도 새로 맞춰져요.</p>
+        <p class="muted">아침마다 한 번 올려두면 그날 재고 기준으로 피킹할 수 있어요.</p>
+        <button class="btn primary" type="button" id="upStock">${I.up}재고현황 올리기</button>
+      </div>
+      <div class="panel">
+        <h3>바코드가 없는 품목 ${missing.length}</h3>
+        <p>진행 중인 전표에서 아직 바코드가 연결되지 않은 품목이에요. 피킹하면서 찍으면 그 자리에서 등록돼요.</p>
+        ${missing.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>위치</th><th>품목</th></tr></thead><tbody>
+          ${missing.slice(0, 40).map(l => `<tr><td class="mono">${esc(l.loc || l.sloc || '-')}</td><td>${esc(l.name)}<br><span class="mono muted">${esc(l.code)}</span></td></tr>`).join('')}
+          </tbody></table></div>${missing.length > 40 ? `<p>외 ${missing.length - 40}개</p>` : ''}` : '<p><b>모두 연결돼 있어요.</b></p>'}
+      </div>
+      <div class="panel">
+        <h3>바코드 대응표</h3>
+        <p>재고 파일에 바코드가 없는 품목은 따로 만든 대응표(품목코드·바코드)를 올려 채울 수 있어요. 피킹 중에 등록한 바코드도 여기에 쌓여요.</p>
+        <div class="row"><button class="btn" type="button" id="upCodes">${I.up}대응표 올리기</button><button class="btn" type="button" id="downCodes">${I.down}대응표 받기</button></div>
+      </div>
+    </div>`;
+  $('#upStock').onclick = () => $('#fileStock').click();
+  $('#upCodes').onclick = () => $('#fileCodes').click();
+  $('#downCodes').onclick = exportCodes;
+  $('#scanLookup').onclick = () => openScanner('lookup');
+  const q = $('#stockQ');
+  q.oninput = () => { ui.stockQ = q.value; clearTimeout(ui.stockT); ui.stockT = setTimeout(() => stockSearch(ui.stockQ), 350); };
+  if (ui.stockFocus) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch(e){} }
+  q.onfocus = () => ui.stockFocus = true; q.onblur = () => ui.stockFocus = false;
+}
+
+/* ---------- actions ---------- */
+async function needWorker(){
+  if (worker()) return true;
+  const name = await ask({title:'작업자 이름을 알려 주세요', body:'현황판에 누가 피킹 중인지 표시돼요. 이 기기에 기억해 둘게요.',
+    html:'<input type="text" id="wName" maxlength="12" placeholder="예: 김민수">',
+    actions:[{label:'시작하기', kind:'primary', value: box => { const v = box.querySelector('#wName').value.trim(); if (!v) { box.querySelector('#wName').focus(); return undefined; } return v; }}, {label:'취소', value:null}]});
+  if (!name) return false; LS.set('opk.worker', name); render(); return true;
+}
+async function openSlip(id){
+  const slip = store.slips[id]; if (!slip) return;
+  if (!(await needWorker())) return;
+  const prog = store.progress[id];
+  if (prog && prog.status === 'picking' && prog.worker && prog.worker !== worker() && Date.now() - (prog.updatedAt || 0) < 30 * 60000) {
+    const ok = await ask({title:`${prog.worker}님이 피킹 중이에요`, body:`마지막 기록 ${fmtTime(prog.updatedAt)}. 같이 이어서 할까요?`, actions:[{label:'이어서 하기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+    if (!ok) return;
+  }
+  if (ui.slipId !== id) { ui.skipped = new Set(); ui.cur = -1; ui.last = null; }
+  ui.slipId = id; LS.set('opk.slip', id);
+  if (!prog || !prog.status) await putProgress(id, {status:'picking', worker:worker(), startedAt:Date.now(), updatedAt:Date.now()});
+  else if (prog.status === 'picking' && prog.worker !== worker()) await putProgress(id, {worker:worker(), updatedAt:Date.now()});
+  go('pick');
+}
+async function addPick(k, n, via){
+  const slip = curSlip(); if (!slip) return; const prog = curProg(); const i = info(slip, prog, k);
+  const np = Math.min(i.l.qty, i.p + n); const done = np >= i.l.qty;
+  await putProgress(slip.id, {status:'picking', updatedAt:Date.now(), finishedAt:null, lines:{[k]: {p:np, s: done ? 'done' : '', r:'', t:Date.now(), w:worker(), v: via || 'scan'}}});
+  beep(true);
+  ui.last = {kind:'ok', title: done ? `담았어요 · ${i.l.name}` : `${np}/${i.l.qty} · ${i.l.qty - np}개 더`, detail:''};
+  scanStatus('ok', done ? `✓ ${i.l.name} 다 담았어요` : `✓ ${np}/${i.l.qty} · 같은 상품 ${i.l.qty - np}개 더 찍어 주세요`);
+  if (done) setTimeout(() => { if (ui.cur === k || ui.cur < 0) { ui.cur = nextPending(); } render();
+    if (ui.cur < 0) { scanStatus('ok', '✓ 전표의 모든 품목을 확인했어요'); setTimeout(closeScanner, 900); } }, 450);
+  else render();
+}
+async function markShort(k){
+  const slip = curSlip(); const i = info(slip, curProg(), k);
+  const res = await ask({title:'부족·결품 처리', body:`<b>${esc(i.l.name)}</b><br>요청 ${i.l.qty}개 중 실제로 담은 수량을 적어 주세요.`,
+    html:`<input type="number" id="shortQty" min="0" max="${i.l.qty}" inputmode="numeric" value="${i.p}">
+      <div class="reasons" role="radiogroup" aria-label="사유">${['재고 없음', '수량 부족', '파손', '위치에 없음', '기타'].map((r, n) => `<label><input type="radio" name="rsn" value="${r}" ${n === 0 ? 'checked' : ''}><span>${r}</span></label>`).join('')}</div>`,
+    actions:[{label:'부족으로 기록', kind:'primary', value: box => { const q = Math.max(0, Math.min(i.l.qty, parseInt(box.querySelector('#shortQty').value || '0', 10) || 0)); const r = (box.querySelector('input[name=rsn]:checked') || {}).value || ''; return {q, r}; }}, {label:'취소', value:null}]});
+  if (!res) return;
+  const full = res.q >= i.l.qty;
+  await putProgress(slip.id, {status:'picking', updatedAt:Date.now(), lines:{[k]: {p:res.q, s: full ? 'done' : 'short', r: full ? '' : res.r, t:Date.now(), w:worker(), v:'manual'}}});
+  ui.last = null; ui.cur = nextPending(); render(); toast(full ? '다 담은 것으로 기록했어요' : '부족으로 기록했어요');
+}
+async function finishSlip(){
+  const slip = curSlip(); await putProgress(slip.id, {status:'done', finishedAt:Date.now(), updatedAt:Date.now(), worker: curProg() && curProg().worker || worker()});
+  beep(true); toast('피킹 완료로 기록했어요');
+}
+
+/* ---------- scanning ---------- */
+function flash(kind, title, detail){
+  ui.last = {kind, title, detail}; beep(kind === 'ok'); scanStatus(kind, (kind === 'ok' ? '✓ ' : '✕ ') + title + (detail ? ` · ${detail}` : '')); render();
+}
+async function onScan(raw){
+  const bc = normBc(raw); if (!bc) return;
+  if (ui.view === 'codes') { ui.stockQ = bc; stockSearch(bc); return; }
+  if (ui.view !== 'pick' || !curSlip()) { toast(`바코드 ${bc} — 피킹 화면에서 찍어 주세요`); return; }
+  const slip = curSlip(); const prog = curProg(); ensureCur();
+  const hit = store.codes[bc];
+  if (hit) {
+    const matches = slip.lines.filter(l => l.code === hit.c);
+    if (!matches.length) return flash('bad', '이 전표에 없는 상품이에요', `${hit.n || hit.c}`);
+    const target = matches.find(l => l.k === ui.cur && !info(slip, prog, l.k).s) || matches.find(l => !info(slip, prog, l.k).s);
+    if (!target) return flash('warn', '이미 다 담은 상품이에요', `${hit.n || hit.c} · 요청 ${matches.reduce((a, l) => a + l.qty, 0)}개`);
+    if (target.k !== ui.cur) {
+      beep(false);
+      const ok = await ask({title:'다른 위치의 상품이에요', body:`지금 찍은 상품은 <b>${esc(target.name)}</b><br>위치 <b class="mono">${esc(target.loc || '없음')}</b> 품목이에요.<br>이 상품을 먼저 담을까요?`,
+        actions:[{label:'이 상품 담기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+      if (!ok) return;
+      ui.cur = target.k;
+    }
+    return addPick(target.k, 1, 'scan');
+  }
+  const l = slip.lines[ui.cur]; if (!l) return flash('bad', '처음 보는 바코드예요', bc);
+  const has = (itemCodes()[l.code] || []).length > 0;
+  beep(false);
+  const ok = await ask({title: has ? '등록된 바코드와 달라요' : '처음 보는 바코드예요',
+    body: has ? `<span class="mono">${esc(bc)}</span><br>지금 품목 <b>${esc(l.name)}</b>에는 다른 바코드가 등록돼 있어요.<br>상품을 다시 확인해 주세요. 같은 상품의 다른 포장이라면 추가로 등록할 수 있어요.`
+      : `<span class="mono">${esc(bc)}</span> 를<br><b>${esc(l.name)}</b> <span class="mono">(${esc(l.code)})</span><br>의 바코드로 등록하고 1개 담을까요?<br><small>상품 포장의 이름이 맞는지 한 번 더 봐 주세요.</small>`,
+    actions: has ? [{label:'다른 상품이에요 (취소)', value:false, kind:'primary'}, {label:'같은 상품 · 바코드 추가 등록', value:true}]
+      : [{label:'등록하고 담기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+  if (!ok) { if (has) flash('bad', '다른 상품이에요', bc); return; }
+  await addCodes({[bc]: {c:l.code, n:l.name, w:worker(), t:Date.now()}});
+  addPick(ui.cur, 1, 'scan');
+}
+
+const scanner = { mode:'pick', stream:null, running:false, paused:false, detector:null, zx:null, zxHints:null, canvas:null, lastCode:'', lastSeen:0, idleT:0, torchOn:false };
+function scanStatus(kind, text){ const s = $('#scanStatus'); if (!s) return; s.className = 'status ' + (kind || ''); s.textContent = text;
+  const a = $('#aim'); if (a && kind) { a.classList.remove('hit', 'miss'); a.classList.add(kind === 'ok' ? 'hit' : 'miss'); setTimeout(() => a.classList.remove('hit', 'miss'), 600); } }
+function renderMini(){
+  const box = $('#scanMini');
+  if (scanner.mode === 'lookup') { if (!box.dataset.filled) box.innerHTML = '<span class="n">바코드를 비추면 재고를 보여드려요</span>'; return; }
+  const slip = curSlip(); if (!slip || ui.cur < 0) { box.innerHTML = '<span class="n">남은 품목이 없어요</span>'; return; }
+  const i = info(slip, curProg(), ui.cur);
+  box.innerHTML = `<span class="l ${i.l.loc || i.l.sloc ? '' : 'none'}">${esc(i.l.loc || i.l.sloc || '위치 없음')}</span><span class="n">${esc(i.l.name)}<small>${esc(i.l.code)}</small></span><span class="q">${i.p}/${i.l.qty}</span>`;
+}
+async function makeDetector(){
+  if (scanner.detector !== null && scanner.detector !== undefined) return scanner.detector;
+  scanner.detector = false;
+  if ('BarcodeDetector' in window) {
+    try { const fm = await window.BarcodeDetector.getSupportedFormats(); const want = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'].filter(f => fm.includes(f));
+      if (want.length) scanner.detector = new window.BarcodeDetector({formats: want}); } catch(e){}
+  }
+  if (!scanner.detector && window.ZXing) {
+    const Z = window.ZXing; const hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.ITF]);
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    scanner.zx = new Z.MultiFormatReader(); scanner.zx.setHints(hints); scanner.zxHints = hints;
+  }
+  return scanner.detector;
+}
+/* sx..sh: 원본에서 잘라 읽을 부분 (노란 선 둘레만 읽어서 빠르고 정확하게) */
+function zxDecode(source, sx, sy, sw, sh, w, h){
+  const Z = window.ZXing; const c = scanner.canvas || (scanner.canvas = document.createElement('canvas'));
+  c.width = w; c.height = h; const ctx = c.getContext('2d', {willReadFrequently:true}); ctx.drawImage(source, sx, sy, sw, sh, 0, 0, w, h);
+  try { const r = scanner.zx.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))), scanner.zxHints); return r ? r.getText() : ''; }
+  catch(e){ return ''; }
+}
+function gotCode(code){
+  const now = Date.now();
+  if (code === scanner.lastCode && now - scanner.lastSeen < 900) { scanner.lastSeen = now; return; } // 같은 바코드가 계속 비치는 중이면 한 번만
+  scanner.lastCode = code; scanner.lastSeen = now;
+  if (scanner.paused || !$('#sheet').hidden) return;
+  scanner.paused = true; (scanner.mode === 'lookup' ? lookupScan(code) : onScan(code)).finally(() => setTimeout(() => { scanner.paused = !$('#sheet').hidden; }, 500));
+}
+const streamAlive = () => !!(scanner.stream && scanner.stream.getVideoTracks().some(t => t.readyState === 'live'));
+/* 카메라는 한 번만 켜고 계속 다시 써요 → 권한 창이 매번 뜨지 않게 */
+async function getStream(){
+  if (streamAlive()) return scanner.stream;
+  const stream = await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}}});
+  scanner.stream = stream; scanner.torchOn = false;
+  const track = stream.getVideoTracks()[0];
+  try {
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (caps.focusMode && caps.focusMode.includes('continuous')) await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
+    $('#torchBtn').hidden = !caps.torch;
+  } catch(e){ $('#torchBtn').hidden = true; }
+  track.addEventListener('ended', () => { if (scanner.stream === stream) scanner.stream = null; });
+  return stream;
+}
+function releaseStream(){
+  clearTimeout(scanner.idleT);
+  if (scanner.stream) { scanner.stream.getTracks().forEach(t => t.stop()); scanner.stream = null; }
+  scanner.torchOn = false; const v = $('#video'); if (v) v.srcObject = null;
+}
+async function setTorch(on){
+  const track = scanner.stream && scanner.stream.getVideoTracks()[0]; if (!track) return;
+  try { await track.applyConstraints({advanced:[{torch:on}]}); scanner.torchOn = on; } catch(e){ scanner.torchOn = false; }
+  $('#torchBtn').setAttribute('aria-pressed', scanner.torchOn ? 'true' : 'false');
+}
+function cameraHelp(e){
+  const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+  if (inAppsScript()) return ['구글 Apps Script 화면 안에서는 폰이 실시간 카메라를 막아요.', '폰에서는 따로 받은 ‘작업자용 링크’로 열어 주세요. 그 주소에서는 바코드를 비추기만 해도 담겨요.'];
+  if (denied) return ['카메라 권한이 꺼져 있어요.', '주소창 왼쪽 자물쇠(또는 설정) → 권한 → 카메라 → 허용으로 바꾼 뒤 다시 눌러 주세요. 한 번 허용하면 다음부터는 묻지 않아요.'];
+  return ['이 화면에서는 실시간 카메라를 쓸 수 없어요.', '폰의 크롬·사파리에서 작업자용 링크로 열면 비추기만 해도 담겨요.'];
+}
+async function lookupScan(bc){
+  const hit = store.codes[bc]; const box = $('#scanMini');
+  scanStatus('', '재고 확인 중…');
+  if (store.mode !== 'sheet') { beep(false); scanStatus('bad', '✕ 구글 시트에 연결해야 재고를 볼 수 있어요'); return; }
+  try {
+    const r = await gsCall('stockFind', {q: hit ? hit.c : bc, limit:5});
+    const list = r.rows || [];
+    const row = (hit ? list.find(x => x.code === hit.c) : list.find(x => x.bc === bc)) || list[0];
+    if (!row) { beep(false); scanStatus('bad', `✕ 재고표에 없는 바코드예요 · ${bc}`); return; }
+    beep(true); scanStatus('ok', `✓ ${row.name || row.code}`);
+    box.dataset.filled = '1';
+    box.innerHTML = `<span class="l ${row.loc ? '' : 'none'}">${esc(row.loc || '위치 없음')}</span><span class="n">${esc(row.name || row.code)}<small>${esc(row.code)}${row.spec ? ' · 박스 ' + esc(row.spec) : ''}</small></span><span class="q">${esc(row.qty)}개</span>`;
+    ui.stockQ = row.code; ui.stockRows = [row];
+  } catch(e){ beep(false); scanStatus('bad', '✕ 재고를 불러오지 못했어요'); }
+}
+async function openScanner(mode){
+  scanner.mode = mode === 'lookup' ? 'lookup' : 'pick';
+  if (scanner.mode === 'pick' && (!curSlip() || ui.cur < 0)) return;
+  clearTimeout(scanner.idleT);
+  $('#scanner').hidden = false; $('#photoBox').hidden = true; $('#aim').hidden = false;
+  delete $('#scanMini').dataset.filled; renderMini();
+  $('#scanHint').textContent = scanner.mode === 'lookup' ? '재고를 볼 바코드를 비추세요' : '바코드를 노란 선에 비추세요';
+  scanStatus('', scanner.mode === 'lookup' ? '비추면 재고 수량과 위치를 보여드려요.' : '비추기만 하면 자동으로 담겨요. 찍는 버튼은 없어요.');
+  const v = $('#video');
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no-media');
+    const stream = await getStream();
+    if ($('#scanner').hidden) return;
+    if (v.srcObject !== stream) v.srcObject = stream;
+    v.hidden = false; await v.play();
+    await makeDetector();
+    if (!scanner.detector && !scanner.zx) throw new Error('no-decoder');
+    scanner.lastCode = ''; scanner.running = true; scanner.paused = false; loop();
+  } catch(e){
+    v.hidden = true; $('#aim').hidden = true; $('#photoBox').hidden = false; $('#torchBtn').hidden = true;
+    const [msg, help] = cameraHelp(e); $('#photoMsg').textContent = msg; $('#photoHelp').textContent = help;
+    $('#scanHint').textContent = '실시간 카메라 사용 불가';
+    scanStatus('', '급할 때는 아래 ‘임시로 사진 찍어 읽기’를 쓸 수 있어요.');
+  }
+}
+function loop(){
+  if (!scanner.running) return;
+  const v = $('#video');
+  const next = () => setTimeout(loop, scanner.detector ? 100 : 150);
+  if (scanner.paused || v.readyState < 2 || !v.videoWidth) return next();
+  if (scanner.detector) {
+    scanner.detector.detect(v).then(cs => { if (cs && cs.length) gotCode(cs[0].rawValue); }).catch(() => {}).finally(next);
+  } else {
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const sy = Math.round(vh * 0.25), sh = Math.round(vh * 0.5); // 가운데 띠만
+    const sc = Math.min(1, 1000 / vw);
+    const code = zxDecode(v, 0, sy, vw, sh, Math.round(vw * sc), Math.round(sh * sc)); if (code) gotCode(code); next();
+  }
+}
+function closeScanner(){
+  scanner.running = false;
+  if (scanner.torchOn) setTorch(false);
+  const v = $('#video'); try { v.pause(); } catch(e){}
+  $('#scanner').hidden = true; render();
+  clearTimeout(scanner.idleT); scanner.idleT = setTimeout(releaseStream, 3 * 60000); // 3분 안에 다시 열면 권한 없이 바로 켜져요
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && $('#scanner').hidden) releaseStream(); });
+async function decodePhoto(file){
+  scanStatus('', '읽는 중…');
+  try {
+    await makeDetector();
+    const url = URL.createObjectURL(file); const img = new Image(); img.src = url; await img.decode();
+    let code = '';
+    if (scanner.detector) { const cs = await scanner.detector.detect(img); code = cs && cs[0] ? cs[0].rawValue : ''; }
+    if (!code && scanner.zx) { const sc = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)); code = zxDecode(img, 0, 0, img.naturalWidth, img.naturalHeight, Math.round(img.naturalWidth * sc), Math.round(img.naturalHeight * sc)); }
+    URL.revokeObjectURL(url);
+    if (!code) { beep(false); scanStatus('bad', '✕ 바코드를 찾지 못했어요. 더 가까이, 흔들리지 않게 다시 찍어 주세요.'); return; }
+    if (scanner.mode === 'lookup') { await lookupScan(code); return; }
+    await onScan(code); renderMini();
+  } catch(e){ scanStatus('bad', '✕ 사진을 읽지 못했어요. 다시 찍어 주세요.'); }
+}
+
+/* bluetooth / USB scanners type fast and press Enter */
+let kbBuf = '', kbAt = 0;
+document.addEventListener('keydown', e => {
+  const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  const now = Date.now(); if (now - kbAt > 80) kbBuf = ''; kbAt = now;
+  if (e.key === 'Enter') { if (kbBuf.length >= 6) { e.preventDefault(); const c = kbBuf; kbBuf = ''; if ($('#sheet').hidden) onScan(c); } kbBuf = ''; return; }
+  if (e.key.length === 1 && /[0-9A-Za-z\-]/.test(e.key)) kbBuf += e.key;
+});
+
+/* ---------- files ---------- */
+$('#fileSlip').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  let added = 0, bad = 0;
+  for (const f of files) {
+    try {
+      const wb = await readFile(f); const slips = parseSlips(wb, f.name);
+      if (!slips.length) { bad++; continue; }
+      for (const s of slips) {
+        const exists = store.slips[s.id]; const prog = store.progress[s.id];
+        if (exists) {
+          const ok = await ask({title:'이미 올린 전표예요', body:`<b class="mono">${esc(s.no)}</b><br>${prog && prog.status ? '새 파일로 바꾸면 지금까지의 피킹 기록이 지워져요.' : '새 파일 내용으로 바꿀까요?'}`,
+            actions:[{label:'새 파일로 바꾸기', value:true, kind:'primary'}, {label:'그대로 두기', value:false}]});
+          if (!ok) continue;
+        }
+        await putSlip(s, !!exists); added++;
+      }
+    } catch(err){ bad++; }
+  }
+  if (added) toast(`전표 ${added}장을 올렸어요${bad ? ` · 읽지 못한 파일 ${bad}개` : ''}`);
+  else if (bad) ask({title:'전표를 찾지 못했어요', body:'제목 줄에 ‘품목코드’, ‘품목명’, ‘수량’이 있는 창고이동 전표 엑셀인지 확인해 주세요.'});
+};
+$('#fileCodes').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const {map, skipped} = parseCodeBook(await readFile(f)); const n = Object.keys(map).length;
+    if (!n) { ask({title:'바코드를 찾지 못했어요', body:'제목 줄에 ‘품목코드’와 ‘바코드’ 글자가 있는지 확인해 주세요.'}); return; }
+    await addCodes(map);
+    ask({title:`바코드 ${n}개를 등록했어요`, body: skipped ? `${skipped}개는 엑셀에서 숫자가 ‘8.8E+12’처럼 줄여져 있어 건너뛰었어요. 바코드 열을 텍스트 형식으로 바꿔 다시 올려 주세요.` : '이제 피킹할 때 바로 확인돼요.'});
+  } catch(err){ ask({title:'파일을 열지 못했어요', body:'엑셀(.xlsx) 파일인지 확인해 주세요.'}); }
+};
+$('#fileStock').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (store.mode !== 'sheet') { ask({title:'구글 시트 연결이 필요해요', body:'재고는 구글 시트에 저장돼요. 연결한 뒤 다시 올려 주세요.'}); return; }
+  let parsed;
+  try { parsed = parseStock(await readFile(f)); }
+  catch(err){ ask({title:'파일을 열지 못했어요', body:'재고현황 엑셀(.xlsx)인지 확인해 주세요.'}); return; }
+  if (!parsed.rows.length) { ask({title:'재고를 찾지 못했어요', body:'제목 줄에 ‘품목코드’와 ‘재고수량’이 있는 재고현황 파일인지 확인해 주세요.'}); return; }
+  const total = parsed.rows.length;
+  const ok = await ask({title:`재고 ${total.toLocaleString()}개 품목을 올릴까요?`,
+    body:`기준 ${esc(parsed.meta.at || '-')}${parsed.meta.wh ? ' · ' + esc(parsed.meta.wh) : ''}<br>지금 저장된 재고는 이 파일 내용으로 바뀌고, 파일 안의 바코드도 함께 등록돼요.<br>1~2분 걸릴 수 있어요.`,
+    actions:[{label:'올리기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+  if (!ok) return;
+  const CH = 1200;
+  try {
+    for (let i = 0; i < total; i += CH){
+      toast(`재고 올리는 중… ${Math.min(i + CH, total).toLocaleString()} / ${total.toLocaleString()}`);
+      await gsWrite('putStock', {rows: parsed.rows.slice(i, i + CH), replace: i === 0, meta: parsed.meta});
+    }
+    toast('전표의 재고 수량을 맞추는 중…');
+    await gsWrite('refreshStock', {});
+  } catch(err){ ask({title:'올리는 중 문제가 있었어요', body:'인터넷 연결을 확인하고 다시 올려 주세요.'}); return; }
+  GS.ver = ''; GS.codesVer = ''; gsSoon(100);
+  ask({title:`재고 ${total.toLocaleString()}개를 올렸어요`,
+    body:`파일 안의 바코드가 등록됐고, 이미 올려둔 전표의 전산 재고도 새로 맞췄어요.${parsed.skipped ? `<br>바코드 모양이 이상한 ${parsed.skipped}건은 건너뛰었어요.` : ''}`});
+};
+$('#filePhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) decodePhoto(f); };
+$('#shootBtn').onclick = () => $('#filePhoto').click();
+$('#scanClose').onclick = closeScanner;
+$('#torchBtn').onclick = () => setTorch(!scanner.torchOn);
+
+async function saveFile(name, buf){
+  let dl = null;
+  if (window.claude && typeof window.claude.use === 'function') { try { dl = await window.claude.use('downloads'); } catch(e){ dl = null; } }
+  if (dl) {
+    try { await dl.save({filename:name, data:new Blob([buf])}); toast('파일을 저장했어요'); }
+    catch(e){ if (e && e.code === 'declined') return; toast('파일을 저장하지 못했어요'); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function exportResult(id){
+  const slip = store.slips[id], prog = store.progress[id] || {};
+  const label = {done:'완료', short:'부족', '':'미확인'};
+  const lines = [...slip.lines].sort((a, b) => coll.compare(String(a.seq), String(b.seq)));
+  const aoa = [['창고이동 피킹 결과'], ['전표번호', slip.no], ['출고창고', slip.from], ['입고창고', slip.to], ['작업자', prog.worker || ''], ['시작', fmtFull(prog.startedAt)], ['완료', fmtFull(prog.finishedAt)], [],
+    ['순번', '로케이션', '품목코드', '품목명', '요청수량', '피킹수량', '상태', '사유', '확인방법', '확인시각']];
+  lines.forEach(l => { const i = info(slip, prog, l.k); const pl = (prog.lines && prog.lines[l.k]) || {};
+    aoa.push([l.seq, l.loc, l.code, l.name, l.qty, i.p, label[i.s], i.r, pl.v === 'manual' ? '수동' : pl.v === 'scan' ? '바코드' : '', fmtFull(pl.t)]); });
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [6, 12, 18, 36, 9, 9, 8, 12, 9, 17].map(w => ({wch:w}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '피킹결과');
+  saveFile(`피킹결과_${slip.no}.xlsx`, XLSX.write(wb, {bookType:'xlsx', type:'array'}));
+}
+function exportCodes(){
+  const rows = [['품목코드', '품목명', '바코드']];
+  Object.entries(store.codes).filter(([, v]) => v).sort((a, b) => coll.compare(a[1].c, b[1].c)).forEach(([bc, v]) => rows.push([v.c, v.n || '', bc]));
+  if (rows.length === 1) { toast('아직 등록된 바코드가 없어요'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = [{wch:18}, {wch:36}, {wch:16}];
+  rows.forEach((r, i) => { if (i) { const c = ws[XLSX.utils.encode_cell({r:i, c:2})]; if (c) { c.t = 's'; c.z = '@'; } } });
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '바코드대응표');
+  saveFile('바코드대응표.xlsx', XLSX.write(wb, {bookType:'xlsx', type:'array'}));
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => go(t.dataset.tab));
+$('#syncPill').onclick = async () => {
+  if (inAppsScript()) { toast('구글 시트에 바로 연결돼 있어요'); return; }
+  const v = await ask({title:'구글 시트 연결', body: API_URL ? '지금 연결된 주소예요. 바꾸려면 새 웹 앱 주소를 붙여넣어 주세요.' : '구글 시트 웹 앱 주소를 붙여넣으면 이 폰이 연결돼요. 작업자용 링크로 열었다면 자동으로 들어가 있어요.',
+    html:`<input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(API_URL)}">`,
+    actions:[{label:'저장하고 다시 열기', kind:'primary', value: box => { const u = box.querySelector('#apiUrl').value.trim(); if (!okApi(u)) { toast('https://script.google.com/ 으로 시작하는 주소를 넣어 주세요'); return undefined; } return u; }}, {label:'닫기', value:null}]});
+  if (v) { LS.set('opk.api', v); location.reload(); }
+};
+$('#workerPill').onclick = async () => {
+  const name = await ask({title:'작업자 이름', body:'이 기기에서 피킹하는 사람 이름이에요.', html:`<input type="text" id="wName" maxlength="12" value="${esc(worker())}">`,
+    actions:[{label:'저장', kind:'primary', value: box => box.querySelector('#wName').value.trim() || undefined}, {label:'취소', value:null}]});
+  if (name) { LS.set('opk.worker', name); render(); }
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#sheet').hidden) $('#sheet').click(); else if (!$('#scanner').hidden) closeScanner(); } });
+if (!window.XLSX) toast('엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
+initStore();
+})();
+</script>
+
+</body>
+</html>
