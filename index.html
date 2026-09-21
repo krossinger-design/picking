@@ -81,7 +81,7 @@ h3{font-size:15px}
 .slip{position:relative;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow)}
 .slip.urgent{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad),var(--shadow)}
 .slip-main{display:flex;flex-direction:column;gap:10px;text-align:left;padding:16px;border:0;background:none;width:100%;border-radius:var(--r)}
-.slip-top{display:flex;align-items:center;gap:8px;padding-right:78px;flex-wrap:wrap}
+.slip-top{display:flex;align-items:center;gap:8px;padding-right:120px;flex-wrap:wrap}
 .folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
 .folder{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;padding:14px 16px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2);width:100%}
 .folder:hover{border-color:var(--ink-3)}
@@ -101,7 +101,14 @@ h3{font-size:15px}
 .opt{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:15px;color:var(--ink)}
 .opt input{width:18px;height:18px;accent-color:var(--btn-bg);flex:none}
 .opt:has(input:checked){border-color:var(--btn-bg);background:var(--surface-2)}
-.urg{position:absolute;top:12px;right:12px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);font-size:13px;font-weight:700}
+.del{position:absolute;top:12px;right:12px;width:34px;height:34px;display:grid;place-items:center;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);padding:0}
+.del svg{width:17px;height:17px}
+.del:hover{color:var(--bad);border-color:var(--bad)}
+.fwrap{position:relative}
+.fwrap .folder{padding-right:56px}
+.fwrap .del{top:50%;transform:translateY(-50%);right:12px}
+.fwrap .folder .chip{margin-right:0}
+.urg{position:absolute;top:12px;right:54px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);font-size:13px;font-weight:700}
 .urg[aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:#fff}
 .chip.urgent{background:var(--bad);color:#fff}
 .filters{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
@@ -521,13 +528,16 @@ async function saveFolder(f){
   if (store.mode === 'claude') { try { await store.db.doc('folders/' + f.id).set(f); } catch(e){ writeErr(e); } }
   else saveLocal();
 }
-async function removeFolder(id){
+async function removeFolder(id, withSlips){
   const fo = {...store.folders}; delete fo[id]; store.folders = fo;
-  const sl = {...store.slips}; const moved = [];
-  Object.values(sl).forEach(x => { if (x.folder === id) { sl[x.id] = {...x, folder:''}; moved.push(x.id); } });
-  store.slips = sl; render();
-  if (store.mode === 'sheet') return gsWrite('deleteFolder', {id});
-  if (store.mode === 'claude') { try { await store.db.doc('folders/' + id).delete(); for (const sid of moved) await store.db.doc('slips/' + sid).update({folder:''}); } catch(e){ writeErr(e); } }
+  const sl = {...store.slips}, pr = {...store.progress}; const moved = [];
+  Object.values(sl).forEach(x => { if (x.folder === id) { moved.push(x.id); if (withSlips) { delete sl[x.id]; delete pr[x.id]; } else sl[x.id] = {...x, folder:''}; } });
+  store.slips = sl; store.progress = pr;
+  if (withSlips && moved.includes(ui.slipId)) { ui.slipId = ''; LS.set('opk.slip', ''); }
+  render();
+  if (store.mode === 'sheet') return gsWrite('deleteFolder', {id, withSlips: !!withSlips});
+  if (store.mode === 'claude') { try { await store.db.doc('folders/' + id).delete();
+    for (const sid of moved) { if (withSlips) { await store.db.doc('slips/' + sid).delete(); await store.db.doc('progress/' + sid).delete(); } else await store.db.doc('slips/' + sid).update({folder:''}); } } catch(e){ writeErr(e); } }
   else saveLocal();
 }
 async function moveSlips(ids, folder){
@@ -746,6 +756,7 @@ const I = {
   up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
   down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>',
   folder: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
 };
 
@@ -773,13 +784,13 @@ function folderStats(fid){
 }
 function folderCard(fd){
   const c = folderStats(fd.id); const pct = c.n ? c.done / c.n * 100 : 0; const allDone = c.n && c.done === c.n;
-  return `<button class="folder ${c.urgent ? 'urgent' : ''} ${allDone ? 'alldone' : ''}" type="button" data-folder="${esc(fd.id)}">
+  return `<div class="fwrap"><button class="folder ${c.urgent ? 'urgent' : ''} ${allDone ? 'alldone' : ''}" type="button" data-folder="${esc(fd.id)}">
     ${I.folder}
     <span class="f-body"><span class="f-name">${esc(fd.name)}</span>
       <span class="f-meta">전표 ${c.n} · 대기 ${c.wait} · 피킹 중 ${c.run} · 완료 ${c.done}</span>
       <span class="bar" aria-hidden="true"><i class="d" style="width:${pct}%"></i></span></span>
     ${c.urgent ? `<span class="chip urgent">긴급 ${c.urgent}</span>` : allDone ? '<span class="chip done">완료</span>' : c.run ? '<span class="chip run">피킹 중</span>' : ''}
-  </button>`;
+  </button><button class="del" type="button" data-del-folder="${esc(fd.id)}" aria-label="${esc(fd.name)} 폴더 지우기" title="폴더 지우기">${I.trash}</button></div>`;
 }
 function renderBoard(){
   const el = $('#view-board');
@@ -809,7 +820,7 @@ function renderBoard(){
       ${filters}
       <button class="btn primary big" type="button" id="upSlip">${I.up}이 폴더에 전표 올리기</button>
       ${!store.ready ? '<p class="muted">불러오는 중…</p>' : list.length ? `<div class="slips">${list.map(x => slipCard(x)).join('')}</div>` : emptyMsg(scope.length ? '이 조건의 전표가 없어요' : '아직 이 폴더에 전표가 없어요')}
-      <div class="row" style="justify-content:flex-start"><button class="btn small" type="button" id="fDelete" style="flex:none;color:var(--ink-3)">폴더 지우기 (전표는 남아요)</button></div>`;
+      <div class="row" style="justify-content:flex-start"><button class="btn small" type="button" id="fDelete" style="flex:none;color:var(--ink-3)">${I.trash}폴더 지우기</button></div>`;
   } else if (f !== 'all') {
     const list = sortSlips(scope.filter(pass));
     body = `
@@ -844,6 +855,8 @@ function renderBoard(){
   el.querySelectorAll('[data-urg]').forEach(b => b.onclick = e => { e.stopPropagation(); toggleUrgent(b.dataset.urg); });
   el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { ui.filter = b.dataset.f; LS.set('opk.filter', ui.filter); render(); });
   el.querySelectorAll('[data-folder]').forEach(b => b.onclick = () => openFolder(b.dataset.folder));
+  el.querySelectorAll('[data-del-slip]').forEach(b => b.onclick = e => { e.stopPropagation(); deleteSlipDialog(b.dataset.delSlip); });
+  el.querySelectorAll('[data-del-folder]').forEach(b => b.onclick = e => { e.stopPropagation(); deleteFolderDialog(b.dataset.delFolder); });
   const nb = $('#fNew'); if (nb) nb.onclick = newFolderDialog;
   const bk = $('#fBack'); if (bk) bk.onclick = () => openFolder('');
   const rn = $('#fRename'); if (rn) rn.onclick = () => renameFolder(fid);
@@ -864,12 +877,33 @@ async function renameFolder(id){
   if (!name || name === f.name) return;
   await saveFolder({...f, name}); toast('이름을 바꿨어요');
 }
+const hasRecord = id => { const p = store.progress[id]; return !!(p && (p.status || Object.values(p.lines || {}).some(x => x && (x.p || x.s)))); };
+async function deleteSlipDialog(id){
+  const s = store.slips[id]; if (!s) return;
+  const started = hasRecord(id);
+  const ok = await ask({title:'이 전표를 지울까요?',
+    body:`<b class="mono">${esc(s.no)}</b> · ${esc(s.to || s.from || '')}<br>${started ? '<b>피킹 기록이 있는 전표예요.</b> 기록도 함께 지워지고 되돌릴 수 없어요.' : '아직 피킹하지 않은 전표예요.'}<br>모든 작업자 화면에서 사라져요.`,
+    actions:[{label:'전표 지우기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+  if (!ok) return;
+  if (ui.slipId === id) { ui.slipId = ''; LS.set('opk.slip', ''); }
+  await removeSlip(id); toast('전표를 지웠어요');
+}
 async function deleteFolderDialog(id){
   const f = store.folders[id]; if (!f) return; const c = folderStats(id);
-  const ok = await ask({title:'이 폴더를 지울까요?', body:`<b>${esc(f.name)}</b><br>${c.n ? `안에 있는 전표 ${c.n}장은 지워지지 않고 ‘폴더 밖 전표’로 옮겨져요.` : '빈 폴더예요.'}`,
-    actions:[{label:'폴더 지우기', value:true, kind:'primary'}, {label:'취소', value:false}]});
-  if (!ok) return;
-  await removeFolder(id); openFolder(''); toast('폴더를 지웠어요');
+  const ids = Object.values(store.slips).filter(x => folderOf(x) === id).map(x => x.id);
+  const started = ids.filter(hasRecord).length;
+  const v = await ask({title:'이 폴더를 지울까요?',
+    body:`<b>${esc(f.name)}</b><br>${c.n ? `안에 전표 ${c.n}장이 있어요.${started ? ` 이 중 ${started}장은 피킹 기록이 있어요.` : ''}` : '빈 폴더예요.'}`,
+    actions: c.n ? [{label:'폴더만 지우기 (전표는 폴더 밖으로)', value:'folder', kind:'primary'}, {label:`폴더와 전표 ${c.n}장 모두 지우기`, value:'all'}, {label:'취소', value:null}]
+      : [{label:'폴더 지우기', value:'folder', kind:'primary'}, {label:'취소', value:null}]});
+  if (!v) return;
+  if (v === 'all' && started) {
+    const sure = await ask({title:'피킹 기록까지 모두 지울까요?', body:`피킹 기록이 있는 전표 ${started}장도 함께 지워지고 되돌릴 수 없어요.`,
+      actions:[{label:'취소', value:false, kind:'primary'}, {label:'그래도 모두 지우기', value:true}]});
+    if (!sure) return;
+  }
+  await removeFolder(id, v === 'all'); if (ui.folder === id) openFolder('');
+  toast(v === 'all' ? `폴더와 전표 ${c.n}장을 지웠어요` : '폴더를 지웠어요');
 }
 async function moveDialog(ids){
   const cur = folderOf(store.slips[ids[0]]);
@@ -903,6 +937,7 @@ function slipCard(s, showFolder){
       <div class="slip-foot"><span class="mono">${st.done + st.short} / ${st.n} 품목 · 수량 ${st.pq}/${st.tq}</span><span>${who}</span></div>
     </button>
     ${doneK ? '' : `<button class="urg" type="button" data-urg="${esc(s.id)}" aria-pressed="${!!s.urgent}" aria-label="${esc(s.no)} 긴급 ${s.urgent ? '해제' : '지정'}">긴급</button>`}
+    <button class="del" type="button" data-del-slip="${esc(s.id)}" aria-label="${esc(s.no)} 지우기" title="전표 지우기">${I.trash}</button>
   </div>`;
 }
 
@@ -1252,12 +1287,18 @@ function zxDecode(source, sx, sy, sw, sh, w, h){
   try { const r = scanner.zx.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))), scanner.zxHints); return r ? r.getText() : ''; }
   catch(e){ return ''; }
 }
+const SCAN_GAP_MS = 1000; // 카메라로 한 번 읽은 뒤 다음 바코드를 받기까지 쉬는 시간 (1초)
 function gotCode(code){
   const now = Date.now();
   if (code === scanner.lastCode && now - scanner.lastSeen < 900) { scanner.lastSeen = now; return; } // 같은 바코드가 계속 비치는 중이면 한 번만
+  if (now - (scanner.lastAccept || 0) < SCAN_GAP_MS) return; // 쉬는 시간 동안 보인 바코드는 무시 (쉬는 시간이 끝나면 다시 읽힘)
   scanner.lastCode = code; scanner.lastSeen = now;
   if (scanner.paused || !$('#sheet').hidden) return;
-  scanner.paused = true; (scanner.mode === 'lookup' ? lookupScan(code) : onScan(code)).finally(() => setTimeout(() => { scanner.paused = !$('#sheet').hidden; }, 500));
+  scanner.paused = true; scanner.lastAccept = now;
+  (scanner.mode === 'lookup' ? lookupScan(code) : onScan(code)).finally(() => {
+    const wait = Math.max(0, SCAN_GAP_MS - (Date.now() - scanner.lastAccept));
+    setTimeout(() => { scanner.paused = !$('#sheet').hidden; }, wait);
+  });
 }
 const streamAlive = () => !!(scanner.stream && scanner.stream.getVideoTracks().some(t => t.readyState === 'live'));
 /* 카메라는 한 번만 켜고 계속 다시 써요 → 권한 창이 매번 뜨지 않게 */
