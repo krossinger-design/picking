@@ -160,7 +160,16 @@ h3{font-size:15px}
 .back svg{width:22px;height:22px}
 .pickhead .t{min-width:0;flex:1}
 .pickhead .t b{display:block;font-family:var(--f-mono);font-size:15px}
-.pickhead .t span{display:block;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickhead .t > span{display:block;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickhead .t .chip{display:inline-flex;width:auto;font-size:12px;vertical-align:middle;margin-left:4px}
+.pickhead .t b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.shortlist{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.shortlist li{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-top:6px;border-top:1px solid color-mix(in srgb,currentColor 25%,transparent)}
+.shortlist li:first-child{border-top:0;padding-top:0}
+.shortlist .n{display:flex;flex-direction:column;min-width:0}
+.shortlist .n b{font-size:17px;line-height:1.3;overflow-wrap:anywhere;letter-spacing:-.01em}
+.shortlist .n small{font-size:12.5px;opacity:.85;line-height:1.35;overflow-wrap:anywhere}
+.shortlist .q{white-space:nowrap;font-size:13.5px;padding-top:2px}
 .count{font-family:var(--f-mono);font-size:14px;color:var(--ink-2);white-space:nowrap}
 .count b{font-size:20px;color:var(--ink)}
 
@@ -978,7 +987,8 @@ function renderPick(){
       <h2>${shorts.length ? `부족 ${shorts.length}건 포함, 피킹을 마쳤어요` : '전 품목을 다 담았어요'}</h2>
       <div class="kv"><span>작업자</span><b>${esc(prog && prog.worker || '-')}</b><span>시작</span><b>${fmtFull(prog && prog.startedAt)}</b>
         ${isDone ? `<span>완료</span><b>${fmtFull(prog.finishedAt)} (${mins(prog.startedAt, prog.finishedAt)})</b>` : ''}</div>
-      ${shorts.length ? `<div class="banner warn"><div><b>부족·결품 품목</b>${shorts.map(l => { const i = info(slip, prog, l.k); return `${esc(l.name)} — ${i.p}/${l.qty}${i.r ? ' · ' + esc(i.r) : ''}`; }).join('<br>')}</div></div>` : ''}
+      ${shorts.length ? `<div class="banner warn"><div style="width:100%"><b>부족·결품 품목 ${shorts.length}</b>
+        <ul class="shortlist">${shorts.map(l => { const i = info(slip, prog, l.k); return `<li><span class="n"><b class="mono">${esc(l.code)}</b><small>${esc(l.name)}${mainLoc(l) ? ` · ${esc(mainLoc(l))}` : ''}</small></span><span class="q mono">${i.p}/${l.qty}${i.r ? ` · ${esc(i.r)}` : ''}</span></li>`; }).join('')}</ul></div></div>` : ''}
       ${isDone ? `<button class="btn primary big" type="button" id="exportRes">${I.down}결과 엑셀 받기</button>
         <button class="btn" type="button" id="reopen">다시 열어서 수정하기</button>`
       : `<button class="btn primary big" type="button" id="finishBtn">피킹 완료 처리</button>
