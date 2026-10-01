@@ -110,6 +110,24 @@ h3{font-size:15px}
 .upbtn.primary{background:var(--btn-bg);border-color:var(--btn-bg);color:var(--btn-fg)}
 .upbtn.primary small{color:inherit;opacity:.75}
 .upbtn.brand{border-color:var(--plate);box-shadow:inset 0 -4px 0 var(--plate)}
+.setbox{margin:0 18px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);overflow:hidden}
+.sethead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 12px;font-size:14px}
+.sethead b{font-size:14.5px}
+.sethead span{font-family:var(--f-mono);font-size:13px;color:var(--ink-2)}
+.setli{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border-top:1px solid var(--line);background:var(--surface)}
+.setli .setmain{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:10px 4px 10px 12px;min-height:52px}
+.setli .n{display:flex;flex-direction:column;min-width:0}
+.setli .n b{font-size:14px;line-height:1.3;overflow-wrap:anywhere}
+.setli .n small{font-size:12px;color:var(--ink-3);line-height:1.3}
+.setli .q{font-family:var(--f-mono);font-size:15px;white-space:nowrap}
+.setli.done{background:var(--ok-bg)}
+.setli.done .n b{color:var(--ok)}
+.setli .undo{border:0;background:none;color:var(--ink-3);font-size:16px;padding:8px 12px;border-radius:8px}
+.setnote{font-size:12.5px;color:var(--ink-3);padding:8px 12px;border-top:1px solid var(--line)}
+.chip.set{background:var(--plate);color:var(--plate-ink)}
+.partlist{margin:6px 0 0;padding:0;list-style:none;font-size:13px;color:var(--ink-2)}
+.partlist li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.partlist li b{font-family:var(--f-mono);white-space:nowrap}
 .split{font-size:13.5px;color:var(--ink-2)}
 .split summary{cursor:pointer;font-weight:700;color:var(--ink)}
 .split ul{margin:6px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 12px}
@@ -349,6 +367,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 <input type="file" id="fileBrand" accept=".xlsx,.xls,.csv" multiple hidden>
 <input type="file" id="fileCodes" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="fileStock" accept=".xlsx,.xls,.csv" hidden>
+<input type="file" id="fileSets" accept=".csv,.xlsx,.xls" hidden>
 <input type="file" id="filePhoto" accept="image/*" capture="environment" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -610,7 +629,8 @@ function sortLines(lines){
     .sort((a, b) => (!a.loc - !b.loc) || coll.compare(a.loc, b.loc) || a._i - b._i)
     .map((l, k) => { const {_i, ...rest} = l; return {...rest, k}; });
 }
-function sheetRows(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, blankrows:false}); }
+/* raw:false — '0062' 같은 앞자리 0이 있는 코드가 숫자로 바뀌지 않게 (CSV에서 특히 중요) */
+function sheetRows(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false, blankrows:false}); }
 /* 전표 엑셀 읽기 — 한 파일에 전표가 여러 장이어도 나눠서 읽어요
    ① 시트마다 1장  ② 한 시트에 '품목코드' 제목 줄이 여러 번 (이카운트 여러 전표 한꺼번에 받기)
    ③ 한 표에 '전표번호'(또는 일자-No.) 열이 있고 줄마다 전표가 섞인 경우 */
@@ -725,7 +745,7 @@ const worker = () => LS.get('opk.worker', '');
 function info(slip, prog, k){
   const l = slip.lines[k]; const pl = (prog && prog.lines && prog.lines[k]) || {};
   const p = pl.p || 0; const s = pl.s || (l.qty <= 0 || p >= l.qty ? (p > 0 || l.qty <= 0 ? 'done' : '') : '');
-  return {l, p, s, r: pl.r || ''};
+  return {l, p, s, r: pl.r || '', sp: pl.sp || null};
 }
 function stats(slip, prog){
   let done = 0, short = 0, pq = 0, tq = 0;
@@ -1012,13 +1032,14 @@ function renderPick(){
         ${l.lot || (l.memo && !/^입고처별 /.test(l.memo)) ? `<div class="meta">${l.lot ? `<span>로트 ${esc(l.lot)}</span>` : ''}${l.memo && !/^입고처별 /.test(l.memo) ? `<span>적요 ${esc(l.memo)}</span>` : ''}</div>` : ''}
       </div>
       <div class="qty"><b>${i.p}</b><span>/ ${l.qty}</span><em>${l.qty - i.p > 0 ? `${l.qty - i.p}개 더 담기` : ''}</em></div>
+      ${setBoxHtml(l, i)}
       <div class="actions">
         ${ui.last ? `<div class="banner ${ui.last.kind}"><div><b>${esc(ui.last.title)}</b>${ui.last.detail ? `<span class="mono">${esc(ui.last.detail)}</span>` : ''}</div></div>` : ''}
         <button class="btn primary big" type="button" id="scanBtn">${I.cam}카메라 스캔 켜기</button>
         ${verified && l.qty - i.p >= 1 ? `<button class="btn" type="button" id="fillRest">같은 상품 나머지 ${l.qty - i.p}개 한 번에 담기</button>` : ''}
         <form class="manual" id="manualForm" autocomplete="off"><input id="manualBc" inputmode="numeric" placeholder="바코드 번호 직접 입력" aria-label="바코드 번호 직접 입력"><button class="btn" type="submit">확인</button></form>
         <div class="row">
-          <button class="btn small" type="button" id="plusOne">수동 +1</button>
+          <button class="btn small" type="button" id="plusOne">${l.parts && l.parts.length ? '세트 그대로 +1' : '수동 +1'}</button>
           <button class="btn small warn" type="button" id="shortBtn">부족·결품</button>
           <button class="btn small" type="button" id="skipBtn">나중에</button>
         </div>
@@ -1081,6 +1102,8 @@ function renderPick(){
     const ok = await ask({title:'바코드 없이 담을까요?', body:`<b>${esc(l.name)}</b><br><span class="mono">${esc(l.code)}</span><br>상품이 맞는지 눈으로 한 번 더 확인해 주세요.`, actions:[{label:'맞아요, 1개 담기', value:true, kind:'primary'}, {label:'취소', value:false}]});
     if (ok) addPick(ui.cur, 1, 'manual');
   };
+  el.querySelectorAll('[data-part]').forEach(b => b.onclick = () => setPartPick(ui.cur, b.dataset.part, 1));
+  el.querySelectorAll('[data-partreset]').forEach(b => b.onclick = () => setPartPick(ui.cur, b.dataset.partreset, 'reset'));
   $('#shortBtn').onclick = () => markShort(ui.cur);
   $('#skipBtn').onclick = () => { ui.skipped.add(ui.cur); ui.last = null; ui.cur = -1; ui.cur = nextPending(); render(); toast('맨 뒤로 미뤘어요'); };
 }
@@ -1096,9 +1119,11 @@ async function lineMenu(k){
 
 function stockRow(r){
   return `<div class="li" style="grid-template-columns:1fr auto;align-items:flex-start">
-    <span class="n"><b>${esc(r.name || r.code)}</b><small>${esc(r.code)}${r.bc ? ' · ' + esc(r.bc) : ' · 바코드 없음'}</small>
+    <span class="n"><b>${esc(r.name || r.code)}${r.parts ? ` <span class="chip set">세트 ${r.parts.length}</span>` : ''}</b><small>${esc(r.code)}${r.bc ? ' · ' + esc(r.bc) : ' · 바코드 없음'}</small>
       ${r.spec || r.size ? `<small>${esc([r.spec ? '박스 ' + r.spec : '', r.size].filter(Boolean).join(' · '))}</small>` : ''}
-      ${r.memo && r.memo !== '.' ? `<small>${esc(r.memo)}</small>` : ''}</span>
+      ${r.memo && r.memo !== '.' ? `<small>${esc(r.memo)}</small>` : ''}
+      ${r.parts ? `<details class="split" style="margin-top:4px"><summary>세트 구성 ${r.parts.length}개</summary><ul class="partlist">${r.parts.map(p => `<li><span>${esc(p.name || p.code)}<br><span class="mono muted">${esc(p.code)}${p.loc ? ' · ' + esc(p.loc) : ''}</span></span><b>${p.per > 1 ? `×${p.per} ` : ''}${p.qty === '' || p.qty === undefined ? '' : `재고 ${p.qty}`}</b></li>`).join('')}</ul></details>` : ''}
+      ${r.inSets ? `<details class="split" style="margin-top:4px"><summary>이 품목이 들어간 세트 ${r.inSets.length}개</summary><ul class="partlist">${r.inSets.map(x => `<li><span>${esc(x.name || x.code)}<br><span class="mono muted">${esc(x.code)}</span></span></li>`).join('')}</ul></details>` : ''}</span>
     <span style="text-align:right">
       <b class="mono" style="font-size:22px;${Number(r.qty) <= 0 ? 'color:var(--bad)' : ''}">${esc(r.qty)}</b>
       <small class="mono muted" style="display:block">${esc(r.loc || '위치 없음')}</small>
@@ -1146,6 +1171,8 @@ function renderCodes(){
         <p>창고 재고현황 파일을 그대로 올리면 품목·수량·위치가 저장되고, 파일 안의 바코드도 한 번에 등록돼요. 이미 올려둔 전표의 재고 수량도 새로 맞춰져요.</p>
         <p class="muted">아침마다 한 번 올려두면 그날 재고 기준으로 피킹할 수 있어요.</p>
         <button class="btn primary" type="button" id="upStock">${I.up}재고현황 올리기</button>
+        <p class="muted" style="margin-top:4px">${si && si.sets ? `세트 구성 ${si.sets.toLocaleString()}개 (구성품 ${si.setParts.toLocaleString()}줄) 등록됨` : '세트 구성은 아직 올리지 않았어요.'}</p>
+        <button class="btn" type="button" id="upSets">${I.up}세트 구성 올리기</button>
       </div>
       <div class="panel">
         <h3>바코드가 없는 품목 ${missing.length}</h3>
@@ -1161,6 +1188,7 @@ function renderCodes(){
       </div>
     </div>`;
   $('#upStock').onclick = () => $('#fileStock').click();
+  $('#upSets').onclick = () => $('#fileSets').click();
   $('#upCodes').onclick = () => $('#fileCodes').click();
   $('#downCodes').onclick = exportCodes;
   $('#scanLookup').onclick = () => openScanner('lookup');
@@ -1219,6 +1247,41 @@ async function markShort(k){
   await putProgress(slip.id, {...startPatch(), lines:{[k]: {p:res.q, s: full ? 'done' : 'short', r: full ? '' : res.r, t:Date.now(), w:worker(), v:'manual'}}});
   ui.last = null; ui.cur = nextPending(); render(); toast(full ? '다 담은 것으로 기록했어요' : '부족으로 기록했어요');
 }
+/* ---------- 세트 품목 ---------- */
+const setNeed = (part, qty) => (Number(part[2]) || 1) * qty;
+function setBoxHtml(l, i){
+  const raw = l.parts || []; if (!raw.length) return '';
+  const parts = raw.slice().sort((a, b) => { const x = String(a[3] || '').split('/')[0].trim(), y = String(b[3] || '').split('/')[0].trim(); return (!x - !y) || cmpLoc(x, y); });
+  const sp = i.sp || {};
+  const okN = parts.filter(p => (sp[p[0]] || 0) >= setNeed(p, l.qty)).length;
+  return `<div class="setbox">
+    <div class="sethead"><b>세트 구성 ${parts.length}개</b><span>${okN}/${parts.length} 담음</span></div>
+    ${parts.map(p => { const need = setNeed(p, l.qty), got = sp[p[0]] || 0;
+      return `<div class="setli ${got >= need ? 'done' : ''}">
+        <button class="setmain" type="button" data-part="${esc(p[0])}">
+          <span class="n"><b>${p[3] ? `<span class="chip wait mono">${esc(String(p[3]).split('/')[0].trim())}</span> ` : ''}${esc(p[1] || p[0])}</b><small class="mono">${esc(p[0])}${Number(p[2]) > 1 ? ` · 세트당 ${esc(p[2])}개` : ''}${p[4] !== '' && p[4] !== undefined ? ` · 재고 ${esc(p[4])}` : ''}</small></span>
+          <span class="q">${got}/${need}</span></button>
+        <button class="undo" type="button" data-partreset="${esc(p[0])}" aria-label="${esc(p[1] || p[0])} 되돌리기" title="0으로 되돌리기">↺</button>
+      </div>`; }).join('')}
+    <div class="setnote">구성품 바코드를 찍거나 줄을 눌러 담으세요. 다 담으면 세트가 완료돼요.</div>
+  </div>`;
+}
+async function setPartPick(k, code, n){
+  const slip = curSlip(); if (!slip) return; const prog = curProg(); const i = info(slip, prog, k); const l = i.l;
+  const parts = l.parts || []; const part = parts.find(x => x[0] === code); if (!part) return;
+  const need = setNeed(part, l.qty); const sp = {...(i.sp || {})};
+  sp[code] = n === 'reset' ? 0 : Math.max(0, Math.min(need, (sp[code] || 0) + n));
+  const full = parts.every(x => (sp[x[0]] || 0) >= setNeed(x, l.qty));
+  const p = Math.max(0, Math.min(l.qty, Math.min(...parts.map(x => Math.floor((sp[x[0]] || 0) / (Number(x[2]) || 1))))));
+  await putProgress(slip.id, {...startPatch(), lines:{[k]: {p, s: full ? 'done' : '', r:'', sp, t:Date.now(), w:worker(), v:'scan'}}});
+  if (n !== 'reset') beep(true);
+  const nm = part[1] || part[0];
+  ui.last = {kind: full ? 'ok' : 'ok', title: full ? `세트 다 담았어요 · ${l.name}` : `${nm} ${sp[code]}/${need}`, detail:''};
+  scanStatus(full ? 'ok' : '', full ? `✓ ${l.name} 세트 완료` : `✓ ${nm} ${sp[code]}/${need} · 남은 구성품 ${parts.filter(x => (sp[x[0]] || 0) < setNeed(x, l.qty)).length}개`);
+  if (full) setTimeout(() => { if (ui.cur === k || ui.cur < 0) ui.cur = nextPending(); render();
+    if (ui.cur < 0) { scanStatus('ok', '✓ 전표의 모든 품목을 확인했어요'); setTimeout(closeScanner, 900); } }, 450);
+  else render();
+}
 async function toggleUrgent(id){
   const s0 = store.slips[id]; if (!s0) return;
   const on = !s0.urgent;
@@ -1258,6 +1321,10 @@ async function onScan(raw){
   if (ui.view !== 'pick' || !curSlip()) { toast(`바코드 ${bc} — 피킹 화면에서 찍어 주세요`); return; }
   const slip = curSlip(); const prog = curProg(); ensureCur();
   const hit = store.codes[bc];
+  const cl = ui.cur >= 0 ? slip.lines[ui.cur] : null;
+  if (hit && cl && (cl.parts || []).some(x => x[0] === hit.c) && !info(slip, prog, ui.cur).s) {
+    return setPartPick(ui.cur, hit.c, 1); // 지금 세트의 구성품을 찍었을 때
+  }
   if (hit) {
     const matches = slip.lines.filter(l => l.code === hit.c);
     if (!matches.length) return flash('bad', '이 전표에 없는 상품이에요', `${hit.n || hit.c}`);
@@ -1619,6 +1686,51 @@ $('#fileStock').onchange = async e => {
   GS.ver = ''; GS.codesVer = ''; gsSoon(100);
   ask({title:`재고 ${total.toLocaleString()}개를 올렸어요`,
     body:`파일 안의 바코드가 등록됐고, 이미 올려둔 전표의 전산 재고도 새로 맞췄어요.${parsed.skipped ? `<br>바코드 모양이 이상한 ${parsed.skipped}건은 건너뛰었어요.` : ''}`});
+};
+/* 세트 구성(BOM) 파일 → [세트품목코드, 세트품목명, 구성품목코드, 구성품목명, 소요량, BOM버전] */
+function parseSetBom(wb){
+  const out = []; let skipped = 0;
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const hi = rows.findIndex(r => r.some(c => cell(c).replace(/\s/g, '') === '생산품목코드'));
+    if (hi < 0) return;
+    const head = rows[hi].map(c => cell(c).replace(/\s/g, ''));
+    const col = (...k) => head.findIndex(h => k.some(x => h.includes(x)));
+    const cSet = col('생산품목코드'), cSetN = col('생산품목명'), cPart = col('소모품목코드'), cPartN = col('소모품목명'),
+      cMake = col('생산수량'), cUse = col('소요량'), cVer = col('BOM버전');
+    for (let i = hi + 1; i < rows.length; i++){
+      const r = rows[i]; const set = cell(r[cSet]), part = cell(r[cPart]);
+      if (!set || !part) { if (set || part) skipped++; continue; }
+      const make = Number(cell(r[cMake]).replace(/,/g, '')) || 1;
+      const use = Number(cell(r[cUse]).replace(/,/g, '')) || 1;
+      out.push([set, cell(r[cSetN]), part, cell(r[cPartN]), make > 1 ? Math.round(use / make * 100) / 100 : use, cVer >= 0 ? cell(r[cVer]) : '']);
+    }
+  });
+  return {rows: out, skipped};
+}
+$('#fileSets').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (store.mode !== 'sheet') { ask({title:'구글 시트 연결이 필요해요', body:'세트 구성은 구글 시트에 저장돼요. 연결한 뒤 다시 올려 주세요.'}); return; }
+  let parsed;
+  try { parsed = parseSetBom(await readFile(f)); }
+  catch(err){ ask({title:'파일을 열지 못했어요', body:'세트 구성 파일(csv·xlsx)인지 확인해 주세요.'}); return; }
+  if (!parsed.rows.length) { ask({title:'세트 구성을 찾지 못했어요', body:'제목 줄에 ‘생산품목코드’와 ‘소모품목코드’가 있는 파일인지 확인해 주세요.'}); return; }
+  const total = parsed.rows.length; const setN = new Set(parsed.rows.map(r => r[0])).size;
+  const ok = await ask({title:`세트 ${setN.toLocaleString()}개를 올릴까요?`,
+    body:`구성품 ${total.toLocaleString()}줄이 들어 있어요. 지금 저장된 세트 구성은 이 파일 내용으로 바뀌어요.<br>올리고 나면 이미 등록한 전표에도 세트 구성이 붙어요. 1~2분 걸릴 수 있어요.`,
+    actions:[{label:'올리기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+  if (!ok) return;
+  const CH = 1500;
+  try {
+    for (let i = 0; i < total; i += CH){
+      toast(`세트 구성 올리는 중… ${Math.min(i + CH, total).toLocaleString()} / ${total.toLocaleString()}`);
+      await gsWrite('putSets', {rows: parsed.rows.slice(i, i + CH), replace: i === 0});
+    }
+    toast('전표에 세트 구성을 붙이는 중…');
+    await gsWrite('refreshSets', {});
+  } catch(err){ ask({title:'올리는 중 문제가 있었어요', body:'인터넷 연결을 확인하고 다시 올려 주세요.'}); return; }
+  GS.ver = ''; gsSoon(100);
+  ask({title:`세트 ${setN.toLocaleString()}개를 올렸어요`, body:`구성품 ${total.toLocaleString()}줄을 저장했어요. 피킹 화면에서 세트 품목을 열면 구성품 목록이 나와요.${parsed.skipped ? `<br>코드가 비어 있는 ${parsed.skipped}줄은 건너뛰었어요.` : ''}`});
 };
 $('#filePhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) decodePhoto(f); };
 $('#shootBtn').onclick = () => $('#filePhoto').click();
