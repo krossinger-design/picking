@@ -110,6 +110,14 @@ h3{font-size:15px}
 .upbtn.primary{background:var(--btn-bg);border-color:var(--btn-bg);color:var(--btn-fg)}
 .upbtn.primary small{color:inherit;opacity:.75}
 .upbtn.brand{border-color:var(--plate);box-shadow:inset 0 -4px 0 var(--plate)}
+.upbtn.loc{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;min-height:0;padding:12px 16px;border-color:var(--plate)}
+.upbtn.loc svg{flex:none}
+.upbtn.loc > span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.zchips{display:flex;flex-wrap:wrap;gap:6px;max-height:34vh;overflow:auto;padding:2px}
+.zchips .flt{flex:none}
+.zchips .flt.used{opacity:.5}
+.zchips .flt b{color:var(--ink)}
+.zchips .flt[aria-pressed="true"] b{color:var(--btn-fg)}
 .setbox{margin:0 18px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);overflow:hidden}
 .sethead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 12px;font-size:14px}
 .sethead b{font-size:14.5px}
@@ -365,6 +373,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 <div id="toast" class="toast" hidden role="status"></div>
 <input type="file" id="fileSlip" accept=".xlsx,.xls,.csv" multiple hidden>
 <input type="file" id="fileBrand" accept=".xlsx,.xls,.csv" multiple hidden>
+<input type="file" id="fileLoc" accept=".xlsx,.xls,.csv" multiple hidden>
 <input type="file" id="fileCodes" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="fileStock" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="fileSets" accept=".csv,.xlsx,.xls" hidden>
@@ -846,7 +855,9 @@ function renderBoard(){
   const f = ui.filter || 'all';
   const rank = s => { const k = boardKey(s); if (s.urgent && k !== 'done') return 0; return {run:1, wait:2, done:3}[k]; };
   const pass = s => f === 'all' || (f === 'urgent' ? s.urgent && boardKey(s) !== 'done' : boardKey(s) === f);
-  const sortSlips = arr => arr.sort((a, b) => (rank(a) - rank(b)) || (a.kind === '브랜드 피킹' && b.kind === '브랜드 피킹' ? (b.lines.length - a.lines.length) || coll.compare(a.no, b.no) : coll.compare(b.no, a.no)));
+  const sortSlips = arr => arr.sort((a, b) => (rank(a) - rank(b)) ||
+    (a.kind === '로케이션 피킹' && b.kind === '로케이션 피킹' ? ((a.uploadedAt || 0) - (b.uploadedAt || 0)) : 0) ||
+    (a.kind === '브랜드 피킹' && b.kind === '브랜드 피킹' ? (b.lines.length - a.lines.length) || coll.compare(a.no, b.no) : coll.compare(b.no, a.no)));
   const F = [['all', '전체'], ['urgent', '긴급'], ['wait', '대기'], ['run', '피킹 중'], ['done', '완료']];
   const filters = `<div class="filters" role="group" aria-label="전표 거르기">
       ${F.map(([k, t]) => `<button class="flt ${k === 'urgent' ? 'hot' : ''}" type="button" data-f="${k}" aria-pressed="${f === k}">${t} <b>${cnt[k]}</b></button>`).join('')}
@@ -881,6 +892,7 @@ function renderBoard(){
       <div class="upgrid">
         <button class="upbtn primary" type="button" id="upSlip">${I.up}<b>전표별 피킹</b><small>전표 한 장이 피킹 리스트 하나가 돼요. 여러 장 파일은 폴더로 묶여요.</small></button>
         <button class="upbtn brand" type="button" id="upBrand">${I.up}<b>브랜드별 피킹</b><small>주방 정기발주용. 여러 전표를 브랜드별로 합쳐 피킹 리스트를 만들어요.</small></button>
+        <button class="upbtn loc" type="button" id="upLoc">${I.up}<span><b>로케이션별 피킹</b><small>로케이션 앞부분을 버튼으로 보여줘요. 맡을 구역을 골라 피킹 리스트를 한 장씩 만들어요.</small></span></button>
       </div>
       ${store.sheetUrl ? `<a class="btn" href="${esc(store.sheetUrl)}" target="_blank" rel="noopener">구글 시트에서 전체 기록 보기</a>` : ''}
       ${!store.ready ? '<p class="muted">전표를 불러오는 중…</p>' : ''}
@@ -899,6 +911,7 @@ function renderBoard(){
   el.innerHTML = body;
   const up = $('#upSlip'); if (up) up.onclick = () => $('#fileSlip').click();
   const ub = $('#upBrand'); if (ub) ub.onclick = () => $('#fileBrand').click();
+  const ul = $('#upLoc'); if (ul) ul.onclick = () => $('#fileLoc').click();
   el.querySelectorAll('[data-slip]').forEach(b => b.onclick = () => openSlip(b.dataset.slip));
   el.querySelectorAll('[data-urg]').forEach(b => b.onclick = e => { e.stopPropagation(); toggleUrgent(b.dataset.urg); });
   el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { ui.filter = b.dataset.f; LS.set('opk.filter', ui.filter); render(); });
@@ -978,7 +991,7 @@ function slipCard(s, showFolder){
   const doneK = boardKey(s) === 'done';
   return `<div class="slip ${s.urgent && !doneK ? 'urgent' : ''}">
     <button class="slip-main" type="button" data-slip="${esc(s.id)}">
-      <div class="slip-top"><span class="slip-no">${esc(s.no)}</span><span class="chip ${ss.key}">${esc(ss.label)}</span>${s.kind === '브랜드 피킹' ? '<span class="ftag">브랜드 피킹</span>' : ''}</div>
+      <div class="slip-top"><span class="slip-no">${esc(s.no)}</span><span class="chip ${ss.key}">${esc(ss.label)}</span>${s.kind === '브랜드 피킹' || s.kind === '로케이션 피킹' ? `<span class="ftag">${esc(s.kind)}</span>` : ''}</div>
       ${fdn ? `<span class="ftag">${I.folder.replace('class="ico"', '')}${esc(fdn)}</span>` : ''}
       <div class="route"><span>출고</span><b>${esc(s.from || '-')}</b><span>입고</span><b>${esc(s.to || '-')}</b></div>
       <div class="bar" aria-hidden="true"><i class="d" style="width:${dw}%"></i><i class="s" style="width:${sw}%"></i></div>
@@ -1652,6 +1665,150 @@ $('#fileBrand').onchange = async e => {
   if (Object.keys(newCodes).length) addCodes(newCodes);
   openFolder(folder.id);
   toast(`‘${name}’에 브랜드 ${items.length}개 피킹 리스트를 만들었어요`);
+};
+/* ---------- 로케이션별 피킹 ----------
+   ① 올린 전표의 품목마다 위치를 정함: 전표 로케이션 → 없으면 재고표 로케이션
+   ② 그래도 없으면 같은 브랜드가 있는 구역으로 (이 파일 안 기준 → 재고표 전체 기준)
+   ③ 브랜드 자체가 어디에도 위치가 없으면 '로케이션 없음'
+   ④ 로케이션 앞부분을 버튼으로 보여주고, 고른 구역을 합쳐 피킹 리스트 1장을 만듦 (사람 수만큼 반복) */
+const NOLOCNAME = '로케이션 없음';
+const locPrefix = loc => String(loc || '').split('/')[0].split('-')[0].trim();
+$('#fileLoc').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  zeroLines = 0; let slips = [], bad = 0;
+  for (const f of files) { try { const got = parseSlips(await readFile(f), f.name); if (got.length) slips = slips.concat(got); else bad++; } catch(err){ bad++; } }
+  if (!slips.length) { ask({title:'전표를 찾지 못했어요', body:'이카운트에서 받은 창고이동 전표 엑셀인지 확인해 주세요.'}); return; }
+  toast('로케이션을 확인하는 중…');
+  /* 같은 품목은 수량을 합치고, 어느 입고처로 몇 개 갈지 기억해 둠 */
+  const items = new Map(); const dests = new Set(), froms = new Set(), dates = {};
+  slips.forEach(s => {
+    if (s.to) dests.add(s.to); if (s.from) froms.add(s.from);
+    const dd = (String(s.no).match(/^(\d{8})/) || [])[1]; if (dd) dates[dd] = (dates[dd] || 0) + 1;
+    s.lines.forEach(l => {
+      let a = items.get(l.code);
+      if (!a) { a = {loc: l.loc, alt: l.alt, code: l.code, name: l.name, qty: 0, bc: l.bc, size: l.size, stores: new Map()}; items.set(l.code, a); }
+      a.qty += l.qty; const key = shortStore(s.to || s.no); a.stores.set(key, (a.stores.get(key) || 0) + l.qty);
+      if (!a.loc && l.loc) { a.loc = l.loc; a.alt = l.alt; } if (!a.bc && l.bc) a.bc = l.bc; if (!a.size && l.size) a.size = l.size;
+    });
+  });
+  const arr = [...items.values()];
+  let dict = {}, locs = {}, blocs = {}, noStock = false;
+  if (store.mode === 'sheet') {
+    try { const r = await gsCall('locmap', {codes: arr.map(a => a.code)}); locs = r.locs || {}; blocs = r.blocs || {}; dict = r.brands || {}; }
+    catch(err){ noStock = true; }
+  } else noStock = true;
+  const fileCnt = {}; arr.forEach(a => { const t = brandTok(a.name); fileCnt[t] = (fileCnt[t] || 0) + 1; });
+  arr.forEach(a => { a.brand = resolveBrand(brandTok(a.name), dict, fileCnt); a.mloc = String(a.loc || locs[a.code] || '').split('/')[0].trim(); });
+  /* 구역 나누기 — 로케이션 앞부분(재고표에 적힌 그대로) */
+  arr.forEach(a => { a.z = locPrefix(a.mloc); a.guess = ''; });
+  const bz = {};
+  arr.forEach(a => { if (!a.z || a.brand === '기타') return; (bz[a.brand] = bz[a.brand] || {})[a.z] = (bz[a.brand][a.z] || 0) + 1; });
+  arr.forEach(a => {
+    if (a.z || a.brand === '기타') return;
+    let z = '', bn = 0;
+    if (bz[a.brand]) Object.keys(bz[a.brand]).forEach(k => { if (bz[a.brand][k] > bn) { bn = bz[a.brand][k]; z = k; } });
+    if (!z && blocs[a.brand]) z = locPrefix(blocs[a.brand]);
+    if (z) { a.z = z; a.guess = a.brand; }
+  });
+  const byLoc = (x, y) => (!x.mloc - !y.mloc) || cmpLoc(x.mloc, y.mloc) || coll.compare(x.code, y.code);
+  const groups = new Map();
+  arr.forEach(a => { const k = a.z || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
+  groups.forEach(list => list.sort(byLoc));
+  const keys = [...groups.keys()].sort((x, y) => (!x - !y) || cmpLoc(x, y));
+  const guessed = arr.filter(a => a.guess).length, none = (groups.get('') || []).length;
+  const zName = z => z || NOLOCNAME;
+
+  /* 구역 버튼을 골라 한 장을 만드는 창. 끝낼 때까지 사람 수만큼 반복해요 */
+  function pickZones(used, round){
+    const chips = keys.map(z => {
+      const list = groups.get(z); const gu = list.filter(a => a.guess).length;
+      return `<button class="flt ${used.has(z) ? 'used' : ''}" type="button" data-z="${esc(z)}" aria-pressed="false" title="${gu ? `위치가 없어 브랜드로 넣은 품목 ${gu}개 포함` : ''}">${esc(zName(z))} <b>${list.length}</b>${used.has(z) ? ' ✓' : ''}</button>`;
+    }).join('');
+    const left = keys.filter(z => !used.has(z)).reduce((a, z) => a + groups.get(z).length, 0);
+    const pr = ask({title: round ? '다음 리스트를 만들까요?' : '어느 구역을 피킹할까요?',
+      body: round
+        ? `아직 안 만든 구역 ${keys.filter(z => !used.has(z)).length}곳 · 품목 ${left}개가 남았어요. 다음 사람이 맡을 구역을 고르세요.`
+        : `전표 ${slips.length}장 · 입고처 ${dests.size}곳 → 품목 ${arr.length}개.
+           구역 버튼을 눌러 고르면 <b>고른 구역을 합쳐 피킹 리스트 1장</b>이 만들어져요. 사람 수만큼 반복하면 돼요.
+           ${noStock ? '<br><b>재고현황을 아직 못 읽었어요.</b> 전표에 적힌 로케이션만으로 나눠요.' : ''}
+           ${guessed ? `<br>위치가 없는 품목 ${guessed}개는 <b>같은 브랜드가 있는 구역</b>에 넣었어요.` : ''}
+           ${none ? `<br>브랜드까지 위치가 없는 ${none}개는 <b>‘${NOLOCNAME}’</b> 버튼에 모았어요.` : ''}
+           ${zeroLines ? `<br>수량 0인 줄 ${zeroLines}개는 뺐어요.` : ''}`,
+      html:`<div class="zchips" id="lpZones">${chips}</div>
+        <button class="btn small" type="button" id="lpAll" style="align-self:flex-start">남은 구역 전부 고르기</button>
+        <p class="muted" id="lpSum" style="font-size:13px;margin:0">고른 구역 없음</p>
+        <label class="muted" for="lpName" style="font-size:13px">피킹 리스트 이름</label>
+        <input type="text" id="lpName" maxlength="40" placeholder="고른 구역 이름으로 자동">
+        <label class="muted" for="lpMax" style="font-size:13px">한 리스트 최대 품목 수 — 비우면 안 나눔</label>
+        <input type="number" id="lpMax" min="10" step="10" inputmode="numeric" placeholder="예: 80 (넘으면 (1/3)처럼 나눠져요)">`,
+      actions:[{label:'이 구역으로 피킹 리스트 만들기', kind:'primary', value: box => {
+          const sel = [...box.querySelectorAll('#lpZones [aria-pressed="true"]')].map(b => b.dataset.z);
+          if (!sel.length) { toast('구역을 하나 이상 골라 주세요'); return undefined; }
+          const v = Math.floor(Number(box.querySelector('#lpMax').value) || 0);
+          return {zones: sel, name: box.querySelector('#lpName').value.trim(), max: v >= 10 ? v : 0};
+        }}, {label: round ? '끝내기' : '취소', value:null}]});
+    const box = $('#sheetBox'), sum = box.querySelector('#lpSum'), nameI = box.querySelector('#lpName');
+    let edited = false; nameI.oninput = () => edited = true;
+    const autoName = sel => sel.length <= 3 ? sel.map(zName).join('·') : `${zName(sel[0])} 외 ${sel.length - 1}곳`;
+    const upd = () => {
+      const sel = [...box.querySelectorAll('#lpZones [aria-pressed="true"]')].map(b => b.dataset.z);
+      const n = sel.reduce((a, z) => a + groups.get(z).length, 0);
+      const q = sel.reduce((a, z) => a + groups.get(z).reduce((x, i) => x + i.qty, 0), 0);
+      sum.textContent = sel.length ? `고른 구역 ${sel.length}곳 · 품목 ${n}개 · 수량 ${q}개` : '고른 구역 없음';
+      if (!edited) nameI.value = sel.length ? autoName(sel) : '';
+    };
+    box.querySelectorAll('#lpZones [data-z]').forEach(b => b.onclick = () => {
+      b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); upd(); });
+    box.querySelector('#lpAll').onclick = () => {
+      const rest = [...box.querySelectorAll('#lpZones [data-z]')].filter(b => !b.classList.contains('used'));
+      const on = rest.some(b => b.getAttribute('aria-pressed') !== 'true');
+      rest.forEach(b => b.setAttribute('aria-pressed', on ? 'true' : 'false')); upd(); };
+    upd();
+    return pr;
+  }
+
+  const dd = Object.entries(dates).sort((a, b) => b[1] - a[1])[0]; const now = new Date();
+  const ymd = dd ? dd[0] : `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  let fname = `${ymd.slice(4, 6)}/${ymd.slice(6, 8)} 로케이션 피킹`;
+  const fnames = new Set(Object.values(store.folders).map(f => f.name)); let kk = 2; const fbase = fname; while (fnames.has(fname)) fname = `${fbase} (${kk++})`;
+  const from = froms.size === 1 ? [...froms][0] : `${[...froms][0] || ''} 외`;
+  const to = dests.size === 1 ? [...dests][0] : `입고처 ${dests.size}곳`;
+  const folder = {id: newFolderId(), name: fname, createdAt: Date.now(), by: worker()};
+  const used = new Set(); const made = []; let seq = 0;
+  for (let round = 0; ; round++){
+    const res = await pickZones(used, round);
+    if (!res) break;
+    const seen = new Set(); const list = [];
+    res.zones.forEach(z => groups.get(z).forEach(a => { if (!seen.has(a.code)) { seen.add(a.code); list.push(a); } }));
+    list.sort(byLoc);
+    const base = res.name || `${zName(res.zones[0])}${res.zones.length > 1 ? ` 외 ${res.zones.length - 1}곳` : ''}`;
+    const parts = [];
+    if (res.max && list.length > res.max) {
+      const n = Math.ceil(list.length / res.max), per = Math.ceil(list.length / n);
+      for (let i = 0; i < n; i++) parts.push({name: `${base} (${i + 1}/${n})`, items: list.slice(i * per, (i + 1) * per)});
+    } else parts.push({name: base, items: list});
+    const out = parts.map(gp => {
+      const lines = gp.items.map((a, j) => ({seq: String(j + 1), loc: a.loc || '', alt: a.alt || '', code: a.code, name: a.name, qty: a.qty, lot: '', bc: a.bc || '', size: a.size || '',
+        memo: '입고처별 ' + [...a.stores.entries()].map(([st, q]) => `${st} ${q}`).join(' · ')}));
+      return {slip: {id: safeId(`L${ymd}-${pad(++seq)}-${Math.random().toString(36).slice(2, 6)}`), no: gp.name, kind: '로케이션 피킹', from, to,
+        printed: '', lines: sortLines(lines), uploadedAt: Date.now() + seq, uploadedBy: worker(), folder: folder.id, urgent: false}, replace: false};
+    });
+    toast(`‘${base}’ 저장 중…`);
+    await putSlips(out, made.length ? null : folder);
+    res.zones.forEach(z => used.add(z));
+    out.forEach(o => made.push(o.slip.no));
+    toast(`‘${base}’ 피킹 리스트를 만들었어요 · 품목 ${list.length}개`);
+    if (used.size >= keys.length) break;
+  }
+  if (!made.length) return;
+  const newCodes = {};
+  slips.forEach(s => s.lines.forEach(l => { if (l.bc && /^[0-9]{6,14}$/.test(l.bc) && !store.codes[l.bc] && !newCodes[l.bc]) newCodes[l.bc] = {c: l.code, n: l.name, w: worker(), t: Date.now()}; }));
+  if (Object.keys(newCodes).length) addCodes(newCodes);
+  openFolder(folder.id);
+  const leftZ = keys.filter(z => !used.has(z));
+  ask({title:`피킹 리스트 ${made.length}장을 만들었어요`,
+    body:`‘${esc(fname)}’ 폴더에 들어 있어요. 폴더 이름은 폴더 안 ‘이름 바꾸기’로 바꿀 수 있어요.${leftZ.length ? `<br>아직 안 만든 구역 ${leftZ.length}곳(품목 ${leftZ.reduce((a, z) => a + groups.get(z).length, 0)}개)이 남았어요. 필요하면 같은 파일을 다시 올려서 만들면 돼요.` : ''}`,
+    html:`<div class="list">${made.slice(0, 12).map(n => `<div class="li" style="grid-template-columns:1fr auto"><span class="n"><b>${esc(n)}</b></span></div>`).join('')}</div>${made.length > 12 ? `<p>외 ${made.length - 12}장</p>` : ''}`});
 };
 $('#fileCodes').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
