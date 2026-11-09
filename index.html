@@ -258,8 +258,8 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 
 /* tab bar */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
-.tabbar .in{display:grid;grid-template-columns:repeat(3,1fr);width:100%;max-width:600px}
-.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 10px;font-size:12.5px;color:var(--ink-3);font-weight:500}
+.tabbar .in{display:grid;grid-template-columns:repeat(4,1fr);width:100%;max-width:600px}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px 10px;font-size:11.5px;color:var(--ink-3);font-weight:500;white-space:nowrap}
 .tab svg{width:24px;height:24px}
 .tab[aria-current="page"]{color:var(--ink);font-weight:700}
 .tab[aria-current="page"] svg{color:var(--ink)}
@@ -326,6 +326,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
   <section id="view-board" class="wrap section" aria-label="전표 현황"></section>
   <section id="view-pick" class="wrap" aria-label="피킹" hidden></section>
   <section id="view-codes" class="wrap section" aria-label="바코드" hidden></section>
+  <section id="view-reg" class="wrap section" aria-label="재고 관리" hidden></section>
 </main>
 
 <nav class="tabbar" aria-label="화면 이동">
@@ -341,6 +342,10 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
     <button class="tab" type="button" data-tab="codes" id="tab-codes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5v14M7 5v14M10.5 5v14M13 5v14M17 5v14M20 5v14" stroke-linecap="round"/></svg>
       <span>재고 조회</span>
+    </button>
+    <button class="tab" type="button" data-tab="reg" id="tab-reg">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M12 11v9M4 8.5 12 13l8-4.5" /><circle cx="18.5" cy="6" r="3.2" fill="var(--plate)" stroke="none"/><path d="M18.5 4.4v3.2M16.9 6h3.2" stroke="var(--plate-ink)" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>재고 관리<span id="regBadge"></span></span>
     </button>
   </div>
 </nav>
@@ -377,6 +382,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 <input type="file" id="fileCodes" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="fileStock" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="fileSets" accept=".csv,.xlsx,.xls" hidden>
+<input type="file" id="fileLocs" accept=".xlsx,.xls,.csv" hidden>
 <input type="file" id="filePhoto" accept="image/*" capture="environment" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -769,7 +775,8 @@ function slipState(slip, prog){
 }
 
 /* ---------- ui state ---------- */
-const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'board'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false };
+const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'board'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false,
+  mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null };
 function go(view){ ui.view = view; LS.set('opk.view', view); render(); window.scrollTo({top:0}); }
 const curSlip = () => store.slips[ui.slipId];
 const curProg = () => store.progress[ui.slipId];
@@ -783,7 +790,7 @@ function cmpLoc(a, b){
   }
   return 0;
 }
-const orderCache = new WeakMap();
+let orderCache = new WeakMap();
 function pickOrder(slip){
   let o = orderCache.get(slip); if (o) return o;
   o = slip.lines.slice().sort((a, b) => { const x = mainLoc(a), y = mainLoc(b); return (!x - !y) || cmpLoc(x, y) || a.k - b.k; });
@@ -815,7 +822,7 @@ const I = {
 
 /* ---------- render ---------- */
 function render(){
-  ['board', 'pick', 'codes'].forEach(v => {
+  ['board', 'pick', 'codes', 'reg'].forEach(v => {
     $('#view-' + v).hidden = ui.view !== v;
     $('#tab-' + v).setAttribute('aria-current', ui.view === v ? 'page' : 'false');
   });
@@ -823,8 +830,11 @@ function render(){
   const slip = curSlip();
   if (slip) { const st = stats(slip, curProg()); $('#pickBadge').innerHTML = st.pending ? `<span class="badge">${st.pending}</span>` : ''; }
   else $('#pickBadge').innerHTML = '';
+  const si0 = store.stockInfo || {}; const ln = (si0.locNew || 0) + (si0.countNew || 0);
+  $('#regBadge').innerHTML = ln ? `<span class="badge">${ln}</span>` : '';
   if (ui.view === 'board') renderBoard();
   else if (ui.view === 'pick') renderPick();
+  else if (ui.view === 'reg') renderMgr();
   else renderCodes();
   if (!$('#scanner').hidden) renderMini();
 }
@@ -1049,6 +1059,7 @@ function renderPick(){
       <div class="actions">
         ${ui.last ? `<div class="banner ${ui.last.kind}"><div><b>${esc(ui.last.title)}</b>${ui.last.detail ? `<span class="mono">${esc(ui.last.detail)}</span>` : ''}</div></div>` : ''}
         <button class="btn primary big" type="button" id="scanBtn">${I.cam}카메라 스캔 켜기</button>
+        ${mainLoc(l) ? '' : '<button class="btn" type="button" id="setLoc">찾은 자리를 재고 위치로 넣기</button>'}
         ${verified && l.qty - i.p >= 1 ? `<button class="btn" type="button" id="fillRest">같은 상품 나머지 ${l.qty - i.p}개 한 번에 담기</button>` : ''}
         <form class="manual" id="manualForm" autocomplete="off"><input id="manualBc" inputmode="numeric" placeholder="바코드 번호 직접 입력" aria-label="바코드 번호 직접 입력"><button class="btn" type="submit">확인</button></form>
         <div class="row">
@@ -1108,6 +1119,7 @@ function renderPick(){
   if (keepVal) $('#manualBc').value = keepVal;
   if (keepFocus) $('#manualBc').focus();
   $('#scanBtn').onclick = () => openScanner('pick');
+  const sl = $('#setLoc'); if (sl) sl.onclick = () => askMove({code: slip.lines[ui.cur].code, name: slip.lines[ui.cur].name, qty: slip.lines[ui.cur].stk});
   const fr = $('#fillRest'); if (fr) fr.onclick = () => { const i = info(slip, prog, ui.cur); addPick(ui.cur, i.l.qty - i.p, 'scan'); };
   $('#manualForm').onsubmit = e => { e.preventDefault(); const v = $('#manualBc').value; $('#manualBc').value = ''; if (v.trim()) onScan(v); };
   $('#plusOne').onclick = async () => {
@@ -1125,9 +1137,10 @@ async function lineMenu(k){
   const slip = curSlip(); const i = info(slip, curProg(), k);
   if (!i.s) { ui.cur = k; ui.last = null; render(); window.scrollTo({top:0, behavior:'smooth'}); return; }
   const v = await ask({title: i.l.name, body:`<span class="mono">${esc(i.l.code)}</span> · ${esc(i.l.loc || '위치 없음')}<br>${i.s === 'short' ? `부족 처리됨 (${i.p}/${i.l.qty})${i.r ? ' · ' + esc(i.r) : ''}` : `담기 완료 (${i.p}/${i.l.qty})`}`,
-    actions:[{label:'처음부터 다시 담기', value:'reset', kind:'primary'}, {label:'부족 수량 고치기', value:'short'}, {label:'닫기', value:null}]});
+    actions:[{label:'처음부터 다시 담기', value:'reset', kind:'primary'}, {label:'부족 수량 고치기', value:'short'}, {label:'자리 옮기기·넣기', value:'loc'}, {label:'닫기', value:null}]});
   if (v === 'reset') { await putProgress(slip.id, {...startPatch(), lines:{[k]: {p:0, s:'', r:'', t:Date.now(), w:worker()}}}); ui.cur = k; render(); }
   if (v === 'short') markShort(k);
+  if (v === 'loc') askMove({code: i.l.code, name: i.l.name, qty: i.l.stk});
 }
 
 function stockRow(r){
@@ -1151,6 +1164,344 @@ async function stockSearch(q){
   try { const r = await gsCall('stockFind', {q, limit:30}); ui.stockRows = r.rows || []; }
   catch(e){ ui.stockRows = []; ui.stockErr = '재고를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.'; }
   ui.stockBusy = false; render();
+}
+/* ================= 재고 관리 (로케이션별 재고 · 위치 이동 · 재고실사) =================
+   한 품목이 여러 자리에 나뉘어 있는 걸 그대로 다뤄요. 위치별 수량은 이카운트에 없는 정보라
+   이 앱이 원본이 되고, 품목의 대표 위치는 수량이 가장 많은 자리로 자동으로 맞춰져요. */
+const cleanLoc = v => String(v || '').split('/')[0].trim().toUpperCase();
+const mgrOk = () => { if (store.mode === 'sheet') return true;
+  ask({title:'구글 시트 연결이 필요해요', body:'재고 관리는 구글 시트에 저장돼요. 연결한 뒤 다시 해 주세요.'}); return false; };
+async function mgrCall(action, data){ try { return await gsCall(action, data || {}); } catch(e){ toast('불러오지 못했어요'); return null; } }
+function afterWrite(){ GS.ver = ''; gsSoon(150); }
+
+/* ---- 위치 이동 ---- */
+async function askMove(item){
+  if (!mgrOk()) return false;
+  const r = await mgrCall('itemBins', {code: item.code});
+  const have = (r && r.rows) || [];
+  const v = await ask({title:'어디로 옮길까요?',
+    body:`<b>${esc(item.name || item.code)}</b><br><span class="mono">${esc(item.code)}</span>`
+      + (have.length ? `<br>지금 있는 자리 ${have.map(x => `<b class="mono">${esc(x.loc)}</b> ${x.qty}개`).join(' · ')}` : '<br>아직 어느 자리에도 없는 품목이에요.'),
+    html:`${have.length ? `<label class="muted" for="mvFrom" style="font-size:13px">어디서</label>
+        <select id="mvFrom" class="search">${have.map(x => `<option value="${esc(x.loc)}">${esc(x.loc)} · ${x.qty}개</option>`).join('')}<option value="">(새로 놓기 · 뺄 자리 없음)</option></select>` : ''}
+      <label class="muted" for="mvTo" style="font-size:13px">어디로 (예: A-01-02)</label>
+      <input type="text" id="mvTo" maxlength="40" autocapitalize="characters" value="${esc(item.to || '')}" placeholder="A-01-02">
+      <label class="muted" for="mvQty" style="font-size:13px">수량</label>
+      <input type="number" id="mvQty" min="1" inputmode="numeric" value="${have.length ? have[0].qty : (item.qty || '')}">`,
+    actions:[{label:'옮기기', kind:'primary', value: box => {
+        const to = cleanLoc(box.querySelector('#mvTo').value);
+        const q = Math.floor(Number(box.querySelector('#mvQty').value) || 0);
+        const fromEl = box.querySelector('#mvFrom');
+        const from = fromEl ? fromEl.value : '';
+        if (!to) { toast('옮길 자리를 적어 주세요'); return undefined; }
+        if (q < 1) { toast('수량을 적어 주세요'); return undefined; }
+        if (from && to === from) { toast('같은 자리예요'); return undefined; }
+        return {from, to, qty: q};
+      }}, {label:'취소', value:null}]});
+  if (!v) return false;
+  const res = await mgrCall('binMove', {rows:[{code:item.code, name:item.name || '', from:v.from, to:v.to, qty:v.qty}], by: worker()});
+  if (!res) return false;
+  afterWrite();
+  toast(`${v.from ? v.from + ' → ' : ''}${v.to} · ${v.qty}개 옮겼어요`);
+  return true;
+}
+/* ---- 재고실사 ---- */
+async function countStart(loc){
+  if (!mgrOk()) return;
+  const r = await mgrCall('binItems', {loc});
+  if (!r) return;
+  ui.cnt = {loc, rows: (r.rows || []).map(x => ({code:x.code, name:x.name, bc:x.bc, was:x.qty, qty:null})), at: Date.now()};
+  ui.mgr = 'count'; render(); window.scrollTo({top:0});
+  toast(`${loc} 실사를 시작했어요 · 품목 ${ui.cnt.rows.length}개`);
+}
+function countSet(code, val){
+  if (!ui.cnt) return;
+  const r = ui.cnt.rows.find(x => x.code === code); if (!r) return;
+  r.qty = val === '' || val === null ? null : Math.max(0, Math.floor(Number(val) || 0));
+  render();
+}
+async function countAdd(code, name, bc){
+  if (!ui.cnt) return;
+  if (ui.cnt.rows.some(x => x.code === code)) { countSet(code, (ui.cnt.rows.find(x => x.code === code).qty || 0) + 1); return; }
+  ui.cnt.rows.push({code, name, bc: bc || '', was: 0, qty: 1, extra: true}); render();
+  toast(`${name || code} · 이 자리에 없던 품목이에요`);
+}
+async function countFinish(){
+  const c = ui.cnt; if (!c) return;
+  const done = c.rows.filter(x => x.qty !== null);
+  if (!done.length) { toast('센 품목이 없어요'); return; }
+  const left = c.rows.length - done.length;
+  const v = await ask({title:`${c.loc} 실사를 마칠까요?`,
+    body:`센 품목 ${done.length}개${left ? ` · 아직 안 센 품목 ${left}개` : ''}.<br>${left ? '안 센 품목을 <b>0개</b>로 볼지 골라 주세요.' : '이 자리를 전부 셌어요.'}`,
+    actions: left
+      ? [{label:`안 센 ${left}개는 그대로 두기`, value:'part', kind:'primary'}, {label:`안 센 ${left}개는 0개로`, value:'all'}, {label:'더 세기', value:null}]
+      : [{label:'마치기', value:'all', kind:'primary'}, {label:'더 세기', value:null}]});
+  if (!v) return;
+  const res = await mgrCall('binCount', {loc:c.loc, all: v === 'all', by: worker(),
+    rows: done.map(x => ({code:x.code, name:x.name, qty:x.qty}))});
+  if (!res) return;
+  afterWrite();
+  const diff = res.diff || [];
+  ui.cnt = null; ui.mgr = 'bins'; ui.mgrQ = c.loc; ui.mgrBins = null; render();
+  await ask({title: diff.length ? `차이 ${diff.length}건이 나왔어요` : '전산과 똑같았어요',
+    body: diff.length ? `${esc(c.loc)} · 센 품목 ${res.n}개 중 ${diff.length}개가 달랐어요. 아래 ‘이카운트로 내보내기’에서 엑셀로 받아 재고조정에 쓰시면 돼요.` : `${esc(c.loc)} · 품목 ${res.n}개 모두 전산 수량과 같았어요.`,
+    html: diff.length ? `<div class="list" style="max-height:40vh;overflow:auto">${diff.slice(0, 40).map(d => `<div class="li" style="grid-template-columns:1fr auto"><span class="n"><b>${esc(d.name || d.code)}</b><small class="mono">${esc(d.code)}</small></span><span class="q mono">${d.was} → ${d.now} <b style="color:var(--${d.gap < 0 ? 'bad' : 'ok'})">${d.gap > 0 ? '+' : ''}${d.gap}</b></span></div>`).join('')}</div>${diff.length > 40 ? `<p>외 ${diff.length - 40}건</p>` : ''}` : ''});
+}
+/* ---- 바코드로 품목 찾기 (이동·실사 공용) ---- */
+async function mgrScan(bc){
+  const hit = store.codes[bc]; const box = $('#scanMini');
+  scanStatus('', '품목 확인 중…');
+  if (store.mode !== 'sheet') { beep(false); scanStatus('bad', '✕ 구글 시트에 연결해야 해요'); return; }
+  let row = null;
+  try { const r = await gsCall('stockFind', {q: hit ? hit.c : bc, limit:5});
+        const list = r.rows || [];
+        row = (hit ? list.find(x => x.code === hit.c) : list.find(x => x.bc === bc)) || list[0] || null; }
+  catch(e){ beep(false); scanStatus('bad', '✕ 품목을 불러오지 못했어요'); return; }
+  if (!row && hit) row = {code: hit.c, name: hit.n || '', loc:'', qty:''};
+  if (!row) { beep(false); scanStatus('bad', `✕ 모르는 바코드예요 · ${bc}`); return; }
+  beep(true); box.dataset.filled = '1';
+  box.innerHTML = `<span class="l ${row.loc ? '' : 'none'}">${esc(row.loc || '위치 없음')}</span><span class="n">${esc(row.name || row.code)}<small>${esc(row.code)}</small></span><span class="q">${esc(row.qty)}</span>`;
+  if (ui.cnt) { await countAdd(row.code, row.name, row.bc); scanStatus('ok', `✓ ${row.name || row.code} · ${(ui.cnt.rows.find(x => x.code === row.code) || {}).qty}개`); return; }
+  const ok = await askMove({code: row.code, name: row.name, qty: row.qty});
+  scanStatus(ok ? 'ok' : '', ok ? `✓ ${row.name || row.code} 옮겼어요` : '다음 품목을 비추세요.');
+}
+/* ---- 이카운트로 내보내기 ---- */
+async function exportMoves(onlyNew){
+  const r = await mgrCall('locLog', {onlyNew: !!onlyNew}); if (!r) return;
+  const rows = r.rows || [];
+  if (!rows.length) { toast(onlyNew ? '아직 안 내보낸 이동 기록이 없어요' : '이동 기록이 없어요'); return; }
+  const wb = XLSX.utils.book_new();
+  const last = {}; rows.forEach(x => last[x.code] = x);
+  const a1 = [['품목코드', '품목명', '로케이션']];
+  Object.values(last).sort((x, y) => coll.compare(x.code, y.code)).forEach(x => a1.push([x.code, x.name, x.to]));
+  const w1 = XLSX.utils.aoa_to_sheet(a1); w1['!cols'] = [{wch:20}, {wch:40}, {wch:18}];
+  XLSX.utils.book_append_sheet(wb, w1, '품목로케이션');
+  const a2 = [['일자', '품목코드', '품목명', '출고위치', '입고위치', '수량', '작업자', '출처']];
+  rows.forEach(x => a2.push([String(x.at).slice(0, 10), x.code, x.name, x.from, x.to, x.qty, x.by, x.src]));
+  const w2 = XLSX.utils.aoa_to_sheet(a2); w2['!cols'] = [{wch:12}, {wch:20}, {wch:40}, {wch:16}, {wch:16}, {wch:8}, {wch:10}, {wch:10}];
+  XLSX.utils.book_append_sheet(wb, w2, '재고이동');
+  const d = new Date();
+  await saveFile(`위치이동_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.xlsx`, XLSX.write(wb, {bookType:'xlsx', type:'array'}));
+  if (await ask({title:`이동 ${rows.length}건을 내보냈어요`, body:'이카운트에 다 올리셨으면 ‘내보냄’으로 표시해 둘까요? 다음부터 새로 생긴 것만 받을 수 있어요.',
+      actions:[{label:'내보냄으로 표시', value:true, kind:'primary'}, {label:'그냥 두기', value:false}]})) {
+    await mgrCall('markLocDone', {}); afterWrite();
+    if (store.stockInfo) store.stockInfo = {...store.stockInfo, locNew: 0};
+    ui.mgrLog = null; render();
+  }
+}
+async function exportCounts(onlyNew){
+  const r = await mgrCall('countLog', {onlyNew: !!onlyNew}); if (!r) return;
+  const rows = r.rows || [];
+  if (!rows.length) { toast(onlyNew ? '아직 안 내보낸 실사 기록이 없어요' : '실사 기록이 없어요'); return; }
+  const wb = XLSX.utils.book_new();
+  const a1 = [['실사ID', '일시', '로케이션', '품목코드', '품목명', '전산수량', '실사수량', '차이', '작업자']];
+  rows.forEach(x => a1.push([x.id, x.at, x.loc, x.code, x.name, x.was, x.now, x.gap, x.by]));
+  const w1 = XLSX.utils.aoa_to_sheet(a1); w1['!cols'] = [{wch:18}, {wch:17}, {wch:16}, {wch:20}, {wch:40}, {wch:9}, {wch:9}, {wch:8}, {wch:10}];
+  XLSX.utils.book_append_sheet(wb, w1, '실사상세');
+  const sum = {};
+  rows.forEach(x => { const o = sum[x.code] || (sum[x.code] = {code:x.code, name:x.name, was:0, now:0}); o.was += x.was; o.now += x.now; });
+  const a2 = [['품목코드', '품목명', '전산합계', '실사합계', '차이']];
+  Object.values(sum).filter(o => o.now - o.was !== 0).sort((x, y) => coll.compare(x.code, y.code))
+    .forEach(o => a2.push([o.code, o.name, o.was, o.now, o.now - o.was]));
+  const w2 = XLSX.utils.aoa_to_sheet(a2); w2['!cols'] = [{wch:20}, {wch:40}, {wch:10}, {wch:10}, {wch:8}];
+  XLSX.utils.book_append_sheet(wb, w2, '재고조정');
+  const d = new Date();
+  await saveFile(`재고실사_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.xlsx`, XLSX.write(wb, {bookType:'xlsx', type:'array'}));
+  if (await ask({title:`실사 ${rows.length}줄을 내보냈어요`,
+      body:`<b>실사상세</b> — 위치별로 센 기록 그대로<br><b>재고조정</b> — 품목별 전산/실사 합계와 차이 (차이 있는 것만 ${a2.length - 1}개)<br><br>이카운트에 다 올리셨으면 ‘내보냄’으로 표시해 둘까요?`,
+      actions:[{label:'내보냄으로 표시', value:true, kind:'primary'}, {label:'그냥 두기', value:false}]})) {
+    await mgrCall('markCountDone', {}); afterWrite();
+    if (store.stockInfo) store.stockInfo = {...store.stockInfo, countNew: 0};
+    render();
+  }
+}
+/* ---- 엑셀로 위치재고 한꺼번에 넣기 ---- */
+function parseLocSheet(wb){
+  const out = []; let skipped = 0;
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const hi = rows.findIndex(r => r.some(c => cell(c).includes('품목코드')) && r.some(c => /로케이션|창고번호|위치/.test(cell(c))));
+    if (hi < 0) return;
+    const head = rows[hi].map(cell);
+    const cCode = head.findIndex(h => h.includes('품목코드'));
+    const cLoc = head.findIndex(h => /로케이션|창고번호|위치/.test(h));
+    const cName = head.findIndex(h => h.includes('품목명'));
+    const cQty = head.findIndex(h => /수량/.test(h));
+    for (let i = hi + 1; i < rows.length; i++){
+      const r = rows[i]; const code = cell(r[cCode]); const loc = cleanLoc(cell(r[cLoc]));
+      if (!code) continue;
+      if (!loc) { skipped++; continue; }
+      out.push({code, name: cName >= 0 ? cell(r[cName]) : '', to: loc, from: '',
+        qty: cQty >= 0 ? (Number(cell(r[cQty]).replace(/,/g, '')) || 0) : 0});
+    }
+  });
+  return {rows: out, skipped};
+}
+/* ---- 화면 ---- */
+function mgrRow(r, mode){
+  const q = r.qty === '' || r.qty === undefined ? '' : r.qty;
+  return `<div class="li" style="grid-template-columns:1fr auto;align-items:center">
+    <span class="n"><b>${esc(r.name || r.code)}</b><small class="mono">${esc(r.code)}</small>
+      ${r.loc !== undefined ? `<small class="mono ${r.loc ? '' : 'muted'}">${r.loc ? esc(r.loc) : '자리 없음'}</small>` : ''}</span>
+    <span style="display:flex;gap:8px;align-items:center">${q === '' ? '' : `<b class="mono">${q}</b>`}
+      <button class="btn small" type="button" data-mv="${esc(r.code)}">옮기기</button></span>
+  </div>`;
+}
+function renderMgr(){
+  const el = $('#view-reg'); const si = store.stockInfo || {};
+  const mode = ui.mgr || 'bins';
+  const seg = [['bins', '로케이션별 재고'], ['move', '위치 이동'], ['count', '재고실사']];
+  let body = '';
+  if (mode === 'bins') {
+    const bins = ui.mgrBins, items = ui.mgrItems, item = ui.mgrItem;
+    body = `<div class="panel">
+      <h3>자리로 찾기 · 품목으로 찾기</h3>
+      <form class="row" id="mgrForm" style="flex-wrap:nowrap" autocomplete="off">
+        <input class="search" id="mgrQ" type="search" enterkeyhint="search" placeholder="A-01 · 품목명 · 품목코드" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
+        <button class="btn primary" type="submit" style="flex:0 0 auto">찾기</button>
+      </form>
+      ${ui.mgrBusy ? '<p>찾는 중…</p>' : ''}
+      ${bins && !items && !item ? (bins.length ? `<div class="eyebrow">자리 ${bins.length}곳</div><div class="list">${bins.map(b => `<button class="li" type="button" data-bin="${esc(b.loc)}" style="grid-template-columns:1fr auto"><span class="n"><b class="mono">${esc(b.loc)}</b><small>품목 ${b.n}개</small></span><span class="q mono">${b.qty}개</span></button>`).join('')}</div>` : '<p>그런 자리가 없어요.</p>') : ''}
+      ${items || item ? '<button class="btn small" type="button" id="mgrBack" style="align-self:flex-start">← 찾은 목록으로</button>' : ''}
+      ${items ? `<div class="sec-title" style="margin:0"><div class="eyebrow">${esc(items.loc)} · 품목 ${items.rows.length}</div><button class="btn small" type="button" id="mgrCount" style="flex:none">이 자리 실사하기</button></div>
+        ${items.rows.length ? `<div class="list">${items.rows.map(x => mgrRow(x)).join('')}</div>` : '<p>이 자리에 등록된 품목이 없어요.</p>'}` : ''}
+      ${item ? `<div class="eyebrow">${esc(item.name || item.code)} · 모두 ${item.total}개${item.stk !== '' ? ` (이카운트 재고 ${item.stk})` : ''}</div>
+        ${item.rows.length ? `<div class="list">${item.rows.map(x => `<button class="li" type="button" data-bin="${esc(x.loc)}" style="grid-template-columns:1fr auto"><span class="n"><b class="mono">${esc(x.loc)}</b></span><span class="q mono">${x.qty}개</span></button>`).join('')}</div>` : '<p>아직 어느 자리에도 없어요.</p>'}
+        <button class="btn" type="button" data-mv="${esc(item.code)}">이 품목 옮기기</button>` : ''}
+      ${ui.mgrFound && !item ? `<div class="eyebrow">품목 ${ui.mgrFound.length}</div><div class="list">${ui.mgrFound.map(x => `<button class="li" type="button" data-item="${esc(x.code)}" style="grid-template-columns:1fr auto"><span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small></span><span class="q mono">${esc(x.loc || '자리 없음')}</span></button>`).join('')}</div>` : ''}
+    </div>`;
+  } else if (mode === 'move') {
+    body = `<div class="panel">
+      <h3>물건을 다른 자리로</h3>
+      <p>바코드를 비추거나 품목을 찾아서 <b>어디서 → 어디로 → 수량</b>을 넣으면 돼요. 자리가 아직 없던 품목은 ‘새로 놓기’로 들어가요.</p>
+      <button class="btn primary big" type="button" id="mgrScanBtn">${I.cam}바코드 비춰서 옮기기</button>
+      <form class="row" id="mgrForm" style="flex-wrap:nowrap" autocomplete="off">
+        <input class="search" id="mgrQ" type="search" enterkeyhint="search" placeholder="품목명 · 품목코드로 찾기" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
+        <button class="btn" type="submit" style="flex:0 0 auto">찾기</button>
+      </form>
+      ${ui.mgrBusy ? '<p>찾는 중…</p>' : ''}
+      ${ui.mgrFound ? (ui.mgrFound.length ? `<div class="list">${ui.mgrFound.map(x => mgrRow({code:x.code, name:x.name, loc:x.loc, qty:x.qty})).join('')}</div>` : '<p>찾는 품목이 없어요.</p>') : ''}
+    </div>
+    <div class="panel">
+      <h3>엑셀로 한꺼번에 넣기</h3>
+      <p>제목 줄에 <b>품목코드</b>와 <b>로케이션</b>(또는 창고번호·위치)이 있으면 돼요. <b>수량</b> 열이 없으면 그 품목 재고 전부를 그 자리에 둔 것으로 봐요.</p>
+      <button class="btn" type="button" id="mgrUp">${I.up}엑셀로 넣기</button>
+    </div>`;
+  } else {
+    const c = ui.cnt;
+    if (!c) {
+      body = `<div class="panel">
+        <h3>자리를 골라 통째로 세기</h3>
+        <p>셀 자리를 고르면 그 자리에 있어야 할 품목이 나와요. 하나씩 센 수를 넣고, 바코드를 비추면 그 품목이 +1 돼요.</p>
+        <form class="row" id="mgrForm" style="flex-wrap:nowrap" autocomplete="off">
+          <input class="search" id="mgrQ" type="search" enterkeyhint="search" placeholder="셀 자리 (예: A-01-02)" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
+          <button class="btn primary" type="submit" style="flex:0 0 auto">찾기</button>
+        </form>
+        ${ui.mgrBusy ? '<p>찾는 중…</p>' : ''}
+        ${ui.mgrBins ? (ui.mgrBins.length ? `<div class="list">${ui.mgrBins.map(b => `<button class="li" type="button" data-cnt="${esc(b.loc)}" style="grid-template-columns:1fr auto"><span class="n"><b class="mono">${esc(b.loc)}</b><small>품목 ${b.n}개 · ${b.qty}개</small></span><span class="q">실사 시작</span></button>`).join('')}</div>` : '<p>그런 자리가 없어요.</p>') : ''}
+      </div>`;
+    } else {
+      const done = c.rows.filter(x => x.qty !== null).length;
+      body = `<div class="panel">
+        <div class="sec-title" style="margin:0"><h3 class="mono">${esc(c.loc)} 실사 중</h3><span class="count"><b>${done}</b> / ${c.rows.length}</span></div>
+        <button class="btn primary big" type="button" id="mgrScanBtn">${I.cam}바코드 비춰서 세기</button>
+        <div class="list">${c.rows.map(x => `<div class="li" style="grid-template-columns:1fr 92px;align-items:center">
+          <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small><small class="muted">전산 ${x.was}개${x.extra ? ' · 이 자리에 없던 품목' : ''}</small></span>
+          <input class="search mono" type="number" min="0" inputmode="numeric" data-cq="${esc(x.code)}" value="${x.qty === null ? '' : x.qty}" placeholder="?" style="text-align:right;min-height:44px">
+        </div>`).join('')}</div>
+        <div class="row"><button class="btn" type="button" id="cntAll">안 센 것 전산대로 채우기</button><button class="btn" type="button" id="cntCancel">그만두기</button></div>
+        <button class="btn primary big" type="button" id="cntDone">다 셌어요 · 차이 보기</button>
+      </div>`;
+    }
+  }
+  el.innerHTML = `
+    <div class="board-head">
+      <div><div class="eyebrow">창고</div><h2>재고 관리</h2></div>
+      <div class="tally">
+        <div><b>${(si.binRows || 0).toLocaleString()}</b>자리별 줄</div>
+        <div><b>${si.locNew || 0}</b>이동 대기</div>
+        <div><b>${si.countNew || 0}</b>실사 대기</div>
+      </div>
+    </div>
+    <div class="filters" role="group" aria-label="재고 관리 화면">
+      ${seg.map(([k, t]) => `<button class="flt" type="button" data-mgr="${k}" aria-pressed="${mode === k}">${t}</button>`).join('')}
+    </div>
+    ${!si.binRows ? `<div class="empty"><b>자리별 재고가 아직 없어요</b><span>재고현황 엑셀의 ‘창고번호’와 재고수량을 그대로 옮겨 시작할 수 있어요. 그 뒤로는 옮긴 기록과 실사로 관리돼요.</span><button class="btn primary" type="button" id="mgrSeed">재고표 기준으로 처음 채우기</button></div>` : ''}
+    ${body}
+    <div class="panel">
+      <h3>이카운트로 내보내기</h3>
+      <div class="row"><button class="btn" type="button" id="expMoveNew">${I.down}이동 기록</button><button class="btn" type="button" id="expCntNew">${I.down}실사 차이</button></div>
+      <p class="muted">‘안 내보낸 것’을 먼저 받고, 이카운트에 올린 뒤 ‘내보냄으로 표시’를 누르면 다음부터 새것만 받아요.</p>
+      <div class="row"><button class="btn small" type="button" id="expMoveAll">이동 전체</button><button class="btn small" type="button" id="expCntAll">실사 전체</button>
+        ${si.binRows ? '<button class="btn small" type="button" id="mgrSeed2" style="color:var(--ink-3)">자리별 다시 채우기</button>' : ''}</div>
+    </div>`;
+  const q = $('#mgrQ');
+  if (q) {
+    $('#mgrForm').onsubmit = ev => { ev.preventDefault(); ui.mgrQ = q.value; mgrSearch(); };
+    q.oninput = () => { ui.mgrQ = q.value; };
+    if (ui.mgrFocus) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch(e){} }
+    q.onfocus = () => ui.mgrFocus = true; q.onblur = () => ui.mgrFocus = false;
+  }
+  el.querySelectorAll('[data-mgr]').forEach(b => b.onclick = () => {
+    ui.mgr = b.dataset.mgr; ui.mgrBins = null; ui.mgrItems = null; ui.mgrItem = null; ui.mgrFound = null; render(); });
+  el.querySelectorAll('[data-bin]').forEach(b => b.onclick = async () => {
+    const r = await mgrCall('binItems', {loc: b.dataset.bin}); if (!r) return;
+    ui.mgrItems = {loc: b.dataset.bin, rows: r.rows || []}; ui.mgrItem = null; ui.mgrFound = null; render(); });
+  el.querySelectorAll('[data-item]').forEach(b => b.onclick = async () => {
+    const code = b.dataset.item;
+    const r = await mgrCall('itemBins', {code}); if (!r) return;
+    const f = (ui.mgrFound || []).find(x => x.code === code) || {};
+    ui.mgrItem = {code, name: f.name || '', stk: r.stk, total: r.total, rows: r.rows || []}; ui.mgrItems = null; ui.mgrFound = null; render(); });
+  el.querySelectorAll('[data-mv]').forEach(b => b.onclick = async () => {
+    const code = b.dataset.mv;
+    const f = (ui.mgrFound || []).concat((ui.mgrItems || {}).rows || []).find(x => x.code === code) || {};
+    if (await askMove({code, name: f.name || (ui.mgrItem && ui.mgrItem.name) || '', qty: f.qty})) { ui.mgrItems = null; ui.mgrItem = null; mgrSearch(); } });
+  el.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => countStart(b.dataset.cnt));
+  el.querySelectorAll('[data-cq]').forEach(inp => { inp.onchange = () => countSet(inp.dataset.cq, inp.value); });
+  const mc = $('#mgrCount'); if (mc) mc.onclick = () => countStart(ui.mgrItems.loc);
+  const mb = $('#mgrBack'); if (mb) mb.onclick = () => { ui.mgrItems = null; ui.mgrItem = null; render(); window.scrollTo({top:0}); };
+  const sb = $('#mgrScanBtn'); if (sb) sb.onclick = () => openScanner('mgr');
+  const up = $('#mgrUp'); if (up) up.onclick = () => $('#fileLocs').click();
+  ['mgrSeed', 'mgrSeed2'].forEach(id => { const b = $('#' + id); if (b) b.onclick = mgrSeed; });
+  $('#expMoveNew').onclick = () => exportMoves(true);
+  $('#expMoveAll').onclick = () => exportMoves(false);
+  $('#expCntNew').onclick = () => exportCounts(true);
+  $('#expCntAll').onclick = () => exportCounts(false);
+  const ca = $('#cntAll'); if (ca) ca.onclick = () => { ui.cnt.rows.forEach(x => { if (x.qty === null) x.qty = x.was; }); render(); };
+  const cc = $('#cntCancel'); if (cc) cc.onclick = async () => {
+    if (await ask({title:'실사를 그만둘까요?', body:'지금까지 센 수는 저장되지 않아요.', actions:[{label:'그만두기', value:true, kind:'primary'}, {label:'계속 세기', value:false}]})) { ui.cnt = null; render(); } };
+  const cd = $('#cntDone'); if (cd) cd.onclick = countFinish;
+}
+async function mgrSearch(){
+  const qq = String(ui.mgrQ || '').trim();
+  ui.mgrBins = null; ui.mgrItems = null; ui.mgrItem = null; ui.mgrFound = null;
+  if (!qq) { render(); return; }
+  if (!mgrOk()) return;
+  ui.mgrBusy = true; render();
+  if (ui.mgr === 'count') {
+    const r = await mgrCall('bins', {q: qq}); ui.mgrBins = r ? r.bins : [];
+  } else if (ui.mgr === 'move') {
+    const r = await mgrCall('stockFind', {q: qq, limit: 30}); ui.mgrFound = r ? r.rows : [];
+  } else {
+    const r = await mgrCall('bins', {q: qq});
+    const bins = r ? r.bins : [];
+    if (bins.length) ui.mgrBins = bins;
+    else { const f = await mgrCall('stockFind', {q: qq, limit: 30}); ui.mgrFound = f ? f.rows : []; }
+  }
+  ui.mgrBusy = false; render();
+}
+async function mgrSeed(){
+  if (!mgrOk()) return;
+  const has = (store.stockInfo || {}).binRows || 0;
+  if (!await ask({title: has ? '자리별 재고를 다시 채울까요?' : '자리별 재고를 처음 채울까요?',
+    body:`재고현황의 <b>창고번호</b>와 <b>재고수량</b>을 그대로 옮겨 ‘어느 자리에 몇 개’를 만들어요.${has ? '<br><b>지금 들어 있는 자리별 수량은 모두 지워지고</b> 재고표 기준으로 새로 만들어져요. 옮긴 기록·실사 기록은 그대로 남아요.' : ''}<br>창고번호가 없는 품목은 건너뛰어요.`,
+    actions:[{label: has ? '다시 채우기' : '처음 채우기', value:true, kind:'primary'}, {label:'취소', value:false}]})) return;
+  toast('자리별 재고를 만드는 중…');
+  const r = await mgrCall('binSeed', {by: worker()}); if (!r) return;
+  afterWrite();
+  if (store.stockInfo) store.stockInfo = {...store.stockInfo, binRows: r.n};
+  ui.mgrBins = null; ui.mgrItems = null; render();
+  ask({title:`자리별 재고 ${r.n.toLocaleString()}줄을 만들었어요`, body: r.noLoc ? `창고번호가 없는데 재고가 있는 품목 ${r.noLoc}개는 넣지 못했어요. ‘위치 이동’에서 자리를 정해 주세요.` : '이제 자리별로 재고를 보고, 옮기고, 실사할 수 있어요.'});
 }
 function renderCodes(){
   const el = $('#view-codes'); const map = itemCodes(); const si = store.stockInfo;
@@ -1374,7 +1725,7 @@ function scanStatus(kind, text){ const s = $('#scanStatus'); if (!s) return; s.c
   const a = $('#aim'); if (a && kind) { a.classList.remove('hit', 'miss'); a.classList.add(kind === 'ok' ? 'hit' : 'miss'); setTimeout(() => a.classList.remove('hit', 'miss'), 600); } }
 function renderMini(){
   const box = $('#scanMini');
-  if (scanner.mode === 'lookup') { if (!box.dataset.filled) box.innerHTML = '<span class="n">바코드를 비추면 재고를 보여드려요</span>'; return; }
+  if (scanner.mode === 'lookup' || scanner.mode === 'mgr') { if (!box.dataset.filled) box.innerHTML = `<span class="n">${scanner.mode === 'mgr' ? (ui.cnt ? '비추면 그 품목을 1개씩 세요' : '비추면 그 물건을 옮길 수 있어요') : '바코드를 비추면 재고를 보여드려요'}</span>`; return; }
   const slip = curSlip(); if (!slip || ui.cur < 0) { box.innerHTML = '<span class="n">남은 품목이 없어요</span>'; return; }
   const i = info(slip, curProg(), ui.cur);
   box.innerHTML = `<span class="l ${mainLoc(i.l) ? '' : 'none'}">${esc(mainLoc(i.l) || '위치 없음')}</span><span class="n">${esc(i.l.name)}<small>${esc(i.l.code)}</small></span><span class="q">${i.p}/${i.l.qty}</span>`;
@@ -1409,7 +1760,7 @@ function gotCode(code){
   scanner.lastCode = code; scanner.lastSeen = now;
   if (scanner.paused || !$('#sheet').hidden) return;
   scanner.paused = true; scanner.lastAccept = now;
-  (scanner.mode === 'lookup' ? lookupScan(code) : onScan(code)).finally(() => {
+  (scanner.mode === 'lookup' ? lookupScan(code) : scanner.mode === 'mgr' ? mgrScan(code) : onScan(code)).finally(() => {
     const wait = Math.max(0, SCAN_GAP_MS - (Date.now() - scanner.lastAccept));
     setTimeout(() => { scanner.paused = !$('#sheet').hidden; }, wait);
   });
@@ -1461,13 +1812,13 @@ async function lookupScan(bc){
   } catch(e){ beep(false); scanStatus('bad', '✕ 재고를 불러오지 못했어요'); }
 }
 async function openScanner(mode){
-  scanner.mode = mode === 'lookup' ? 'lookup' : 'pick';
+  scanner.mode = (mode === 'lookup' || mode === 'mgr') ? mode : 'pick';
   if (scanner.mode === 'pick' && (!curSlip() || ui.cur < 0)) return;
   clearTimeout(scanner.idleT);
   $('#scanner').hidden = false; $('#photoBox').hidden = true; $('#aim').hidden = false;
   delete $('#scanMini').dataset.filled; renderMini();
-  $('#scanHint').textContent = scanner.mode === 'lookup' ? '재고를 볼 바코드를 비추세요' : '바코드를 노란 선에 비추세요';
-  scanStatus('', scanner.mode === 'lookup' ? '비추면 재고 수량과 위치를 보여드려요.' : '비추기만 하면 자동으로 담겨요. 찍는 버튼은 없어요.');
+  $('#scanHint').textContent = scanner.mode === 'pick' ? '바코드를 노란 선에 비추세요' : scanner.mode === 'mgr' ? (ui.cnt ? '세는 물건을 비추세요' : '옮길 물건을 비추세요') : '재고를 볼 바코드를 비추세요';
+  scanStatus('', scanner.mode === 'pick' ? '비추기만 하면 자동으로 담겨요. 찍는 버튼은 없어요.' : scanner.mode === 'mgr' ? (ui.cnt ? '비출 때마다 그 품목이 1개씩 올라가요.' : '비추면 그 물건을 옮길 수 있어요.') : '비추면 재고 수량과 위치를 보여드려요.');
   const v = $('#video');
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no-media');
@@ -1518,6 +1869,7 @@ async function decodePhoto(file){
     URL.revokeObjectURL(url);
     if (!code) { beep(false); scanStatus('bad', '✕ 바코드를 찾지 못했어요. 더 가까이, 흔들리지 않게 다시 찍어 주세요.'); return; }
     if (scanner.mode === 'lookup') { await lookupScan(code); return; }
+    if (scanner.mode === 'mgr') { await mgrScan(code); return; }
     await onScan(code); renderMini();
   } catch(e){ scanStatus('bad', '✕ 사진을 읽지 못했어요. 다시 찍어 주세요.'); }
 }
@@ -1696,10 +2048,39 @@ $('#fileLoc').onchange = async e => {
     });
   });
   const arr = [...items.values()];
-  let dict = {}, locs = {}, blocs = {}, noStock = false;
+  let dict = {}, locs = {}, blocs = {}, noStock = false, stockRows = 0;
   if (store.mode === 'sheet') {
-    try { const r = await gsCall('locmap', {codes: arr.map(a => a.code)}); locs = r.locs || {}; blocs = r.blocs || {}; dict = r.brands || {}; }
-    catch(err){ noStock = true; }
+    let err0 = null;
+    try { const r = await gsCall('locmap', {codes: arr.map(a => a.code)}); locs = r.locs || {}; blocs = r.blocs || {}; dict = r.brands || {}; stockRows = r.stockRows || 0; }
+    catch(err){ noStock = true; err0 = String((err && err.message) || err || ''); }
+    if (noStock) {
+      /* 구글 시트의 Code.gs가 옛 버전이면 locmap 액션이 없어 위치를 못 읽어요.
+         그 사실을 조용히 넘기지 않고 알려 주고, 급하면 느린 방법으로라도 찾아 줘요. */
+      const oldSrv = /알 수 없는 요청|locmap|is not defined/.test(err0);
+      const slow = arr.length <= 200;
+      const v = await ask({title:'재고에서 위치를 읽지 못했어요',
+        body: (oldSrv
+          ? `구글 시트의 <b>Code.gs가 옛 버전</b>이라 위치를 한 번에 가져오는 기능(<span class="mono">locmap</span>)이 없어요.`
+          : `구글 시트에 연결은 됐지만 위치를 가져오다 실패했어요.<br><span class="mono">${esc(err0.slice(0, 120))}</span>`)
+          + `<br><br><b>고치는 법</b><br>Apps Script 편집기에서 <b>Code.gs 내용을 새 파일로 통째로 바꾼 뒤</b>, <b>배포 → 배포 관리 → 연필 → 버전: 새 버전 → 배포</b>까지 해 주세요. 붙여넣기만 하고 새 버전으로 배포하지 않으면 예전 코드가 계속 돌아요.`
+          + (slow ? `<br><br>지금 급하면 느린 방법으로 품목 ${arr.length}개를 하나씩 찾아볼 수도 있어요 (약 ${Math.ceil(arr.length * 0.2)}초).` : `<br><br>품목이 ${arr.length}개라 하나씩 찾는 방법은 너무 오래 걸려요. 먼저 Code.gs를 새 버전으로 배포해 주세요.`),
+        actions: (slow ? [{label:`느리게라도 지금 찾기 (${arr.length}개)`, value:'slow', kind:'primary'}] : [])
+          .concat([{label:'위치 없이 그냥 나누기', value:'go'}, {label:'그만두기', value:null}])});
+      if (!v) return;
+      if (v === 'slow') {
+        let hit = 0;
+        for (let i = 0; i < arr.length; i++){
+          const a = arr[i];
+          if (i % 5 === 0) toast(`재고에서 위치 찾는 중… ${i} / ${arr.length}`);
+          try { const r = await gsCall('stockFind', {q: a.code, limit: 5});
+            const row = (r.rows || []).find(x => x.code === a.code);
+            if (row && row.loc) { locs[a.code] = row.loc; hit++; } }
+          catch(e){ toast('중간에 연결이 끊겨 멈췄어요'); break; }
+        }
+        noStock = false;
+        toast(`위치를 찾은 품목 ${hit} / ${arr.length}`);
+      }
+    }
   } else noStock = true;
   const fileCnt = {}; arr.forEach(a => { const t = brandTok(a.name); fileCnt[t] = (fileCnt[t] || 0) + 1; });
   arr.forEach(a => { a.brand = resolveBrand(brandTok(a.name), dict, fileCnt); a.mloc = String(a.loc || locs[a.code] || '').split('/')[0].trim(); });
@@ -1720,6 +2101,7 @@ $('#fileLoc').onchange = async e => {
   groups.forEach(list => list.sort(byLoc));
   const keys = [...groups.keys()].sort((x, y) => (!x - !y) || cmpLoc(x, y));
   const guessed = arr.filter(a => a.guess).length, none = (groups.get('') || []).length;
+  const stockHit = arr.filter(a => a.mloc).length;   // 전표든 재고표든 위치를 찾은 품목 수
   const zName = z => z || NOLOCNAME;
 
   /* 구역 버튼을 골라 한 장을 만드는 창. 끝낼 때까지 사람 수만큼 반복해요 */
@@ -1734,7 +2116,8 @@ $('#fileLoc').onchange = async e => {
         ? `아직 안 만든 구역 ${keys.filter(z => !used.has(z)).length}곳 · 품목 ${left}개가 남았어요. 다음 사람이 맡을 구역을 고르세요.`
         : `전표 ${slips.length}장 · 입고처 ${dests.size}곳 → 품목 ${arr.length}개.
            구역 버튼을 눌러 고르면 <b>고른 구역을 합쳐 피킹 리스트 1장</b>이 만들어져요. 사람 수만큼 반복하면 돼요.
-           ${noStock ? '<br><b>재고현황을 아직 못 읽었어요.</b> 전표에 적힌 로케이션만으로 나눠요.' : ''}
+           ${noStock ? '<br><b>재고 위치를 못 읽었어요.</b> 전표에 적힌 로케이션만으로 나눠요.'
+             : `<br>재고표(${stockRows ? stockRows.toLocaleString() + '품목' : '등록분'})에서 위치를 찾은 품목 <b>${stockHit}/${arr.length}</b>.`}
            ${guessed ? `<br>위치가 없는 품목 ${guessed}개는 <b>같은 브랜드가 있는 구역</b>에 넣었어요.` : ''}
            ${none ? `<br>브랜드까지 위치가 없는 ${none}개는 <b>‘${NOLOCNAME}’</b> 버튼에 모았어요.` : ''}
            ${zeroLines ? `<br>수량 0인 줄 ${zeroLines}개는 뺐어요.` : ''}`,
@@ -1831,8 +2214,9 @@ $('#fileStock').onchange = async e => {
   catch(err){ ask({title:'파일을 열지 못했어요', body:'재고현황 엑셀(.xlsx)인지 확인해 주세요.'}); return; }
   if (!parsed.rows.length) { ask({title:'재고를 찾지 못했어요', body:'제목 줄에 ‘품목코드’와 ‘재고수량’이 있는 재고현황 파일인지 확인해 주세요.'}); return; }
   const total = parsed.rows.length;
+  const ln = (store.stockInfo && store.stockInfo.locNew) || 0;
   const ok = await ask({title:`재고 ${total.toLocaleString()}개 품목을 올릴까요?`,
-    body:`기준 ${esc(parsed.meta.at || '-')}${parsed.meta.wh ? ' · ' + esc(parsed.meta.wh) : ''}<br>지금 저장된 재고는 이 파일 내용으로 바뀌고, 파일 안의 바코드도 함께 등록돼요.<br>1~2분 걸릴 수 있어요.`,
+    body:`기준 ${esc(parsed.meta.at || '-')}${parsed.meta.wh ? ' · ' + esc(parsed.meta.wh) : ''}<br>지금 저장된 재고는 이 파일 내용으로 바뀌고, 파일 안의 바코드도 함께 등록돼요.<br>1~2분 걸릴 수 있어요.${ln ? `<br><br><b>잠깐 — 앱에서 등록한 위치 ${ln}건이 아직 이카운트에 안 올라갔어요.</b> 이 파일로 덮으면 그 위치가 사라져요. ‘재고 등록’ 탭에서 먼저 엑셀로 내보내 이카운트에 올린 뒤 받아 오시는 걸 권해요. (등록 기록 자체는 남아 있어요)` : ''}`,
     actions:[{label:'올리기', value:true, kind:'primary'}, {label:'취소', value:false}]});
   if (!ok) return;
   const CH = 1200;
@@ -1892,6 +2276,29 @@ $('#fileSets').onchange = async e => {
   } catch(err){ ask({title:'올리는 중 문제가 있었어요', body:'인터넷 연결을 확인하고 다시 올려 주세요.'}); return; }
   GS.ver = ''; gsSoon(100);
   ask({title:`세트 ${setN.toLocaleString()}개를 올렸어요`, body:`구성품 ${total.toLocaleString()}줄을 저장했어요. 피킹 화면에서 세트 품목을 열면 구성품 목록이 나와요.${parsed.skipped ? `<br>코드가 비어 있는 ${parsed.skipped}줄은 건너뛰었어요.` : ''}`});
+};
+$('#fileLocs').onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  if (!mgrOk()) return;
+  let parsed;
+  try { parsed = parseLocSheet(await readFile(f)); }
+  catch(err){ ask({title:'파일을 열지 못했어요', body:'엑셀(.xlsx)·CSV 파일인지 확인해 주세요.'}); return; }
+  if (!parsed.rows.length) { ask({title:'읽을 줄이 없어요', body:'제목 줄에 ‘품목코드’와 ‘로케이션’(또는 창고번호·위치)이 있는지 확인해 주세요.'}); return; }
+  const noQty = parsed.rows.filter(r => !r.qty).length;
+  const ok = await ask({title:`${parsed.rows.length}줄을 자리별 재고에 넣을까요?`,
+    body:`적힌 자리에 그 수량이 있는 것으로 넣어요. 이미 그 자리에 있던 수량에 <b>더해져요</b>.${noQty ? `<br>수량이 비어 있는 ${noQty}줄은 <b>그 품목 재고 전부</b>를 그 자리에 둔 것으로 봐요.` : ''}${parsed.skipped ? `<br>자리가 비어 있는 ${parsed.skipped}줄은 건너뛰어요.` : ''}`,
+    html:`<div class="list" style="max-height:30vh;overflow:auto">${parsed.rows.slice(0, 15).map(r => `<div class="li" style="grid-template-columns:1fr auto"><span class="n"><b class="mono">${esc(r.code)}</b><small>${esc(r.name)}</small></span><span class="q mono">${esc(r.to)}${r.qty ? ' · ' + r.qty : ''}</span></div>`).join('')}</div>${parsed.rows.length > 15 ? `<p>외 ${parsed.rows.length - 15}줄</p>` : ''}`,
+    actions:[{label:'넣기', value:true, kind:'primary'}, {label:'취소', value:false}]});
+  if (!ok) return;
+  const CH = 300; let n = 0, skipped = 0;
+  for (let i = 0; i < parsed.rows.length; i += CH){
+    toast(`넣는 중… ${Math.min(i + CH, parsed.rows.length)} / ${parsed.rows.length}`);
+    const r = await mgrCall('binMove', {rows: parsed.rows.slice(i, i + CH), by: worker(), fillAll: true});
+    if (!r) break;
+    n += r.n || 0; skipped += r.skipped || 0;
+  }
+  afterWrite(); ui.mgrBins = null; ui.mgrItems = null; render();
+  ask({title:`${n}줄을 넣었어요`, body:`${skipped ? `수량이나 자리를 못 읽은 ${skipped}줄은 건너뛰었어요.<br>` : ''}‘이카운트로 내보내기’에서 이동 기록 엑셀을 받을 수 있어요.`});
 };
 $('#filePhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) decodePhoto(f); };
 $('#shootBtn').onclick = () => $('#filePhoto').click();
