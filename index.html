@@ -1168,10 +1168,12 @@ function renderCodes(){
       </div>
     </div>
     <div class="panel">
-      <div class="row" style="flex-wrap:nowrap">
-        <input class="search" id="stockQ" type="search" placeholder="품목명 · 품목코드 · 바코드" value="${esc(ui.stockQ)}" aria-label="재고 검색" style="flex:1 1 auto">
-        <button class="btn" type="button" id="scanLookup" style="flex:0 0 auto">${I.cam}비춰서 찾기</button>
-      </div>
+      <form class="row" id="stockForm" style="flex-wrap:nowrap" autocomplete="off">
+        <input class="search" id="stockQ" type="search" enterkeyhint="search" placeholder="품목명 · 품목코드 · 바코드" value="${esc(ui.stockQ)}" aria-label="재고 검색" style="flex:1 1 auto">
+        <button class="btn primary" type="submit" id="stockGo" style="flex:0 0 auto">찾기</button>
+      </form>
+      <p class="muted" style="font-size:12.5px;margin:0">다 적고 <b>찾기</b>(또는 키보드의 검색·엔터)를 누르면 찾아요.</p>
+      <button class="btn" type="button" id="scanLookup">${I.cam}비춰서 찾기</button>
       ${si && si.at ? `<p>재고 기준 ${esc(si.at)}${si.wh ? ' · ' + esc(si.wh) : ''}</p>` : '<p>아직 재고 파일을 올리지 않았어요.</p>'}
       ${ui.stockBusy ? '<p>찾는 중…</p>' : ''}
       ${ui.stockErr ? `<div class="banner bad"><div>${esc(ui.stockErr)}</div></div>` : ''}
@@ -1206,7 +1208,9 @@ function renderCodes(){
   $('#downCodes').onclick = exportCodes;
   $('#scanLookup').onclick = () => openScanner('lookup');
   const q = $('#stockQ');
-  q.oninput = () => { ui.stockQ = q.value; clearTimeout(ui.stockT); ui.stockT = setTimeout(() => stockSearch(ui.stockQ), 350); };
+  /* 타이핑 중에는 찾지 않아요 — 다 적고 엔터나 '찾기'를 눌렀을 때만 */
+  $('#stockForm').onsubmit = ev => { ev.preventDefault(); ui.stockQ = q.value; stockSearch(ui.stockQ); };
+  q.oninput = () => { ui.stockQ = q.value; if (!q.value.trim() && ui.stockRows) { ui.stockRows = null; ui.stockErr = ''; render(); } };
   if (ui.stockFocus) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch(e){} }
   q.onfocus = () => ui.stockFocus = true; q.onblur = () => ui.stockFocus = false;
 }
