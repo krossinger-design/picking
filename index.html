@@ -638,7 +638,12 @@ async function addCodes(entries){ // {barcode: {c, n, w, t}} ; value null = remo
   for (const k in entries) (byShard[shardOf(k)] ||= {})[k] = entries[k];
   try { for (const s in byShard) await upsert('barcodes/' + s, {map: byShard[s]}); } catch(e){ writeErr(e); }
 }
-function itemCodes(){ const m = {}; for (const bc in store.codes) { const v = store.codes[bc]; if (v && v.c) (m[v.c] ||= []).push(bc); } return m; }
+let icCache = null, icSrc = null;
+function itemCodes(){
+  if (icCache && icSrc === store.codes) return icCache;
+  const m = {}; for (const bc in store.codes) { const v = store.codes[bc]; if (v && v.c) (m[v.c] ||= []).push(bc); }
+  icSrc = store.codes; icCache = m; return m;
+}
 
 /* ---------- excel parsing ---------- */
 function splitLoc(v){
@@ -782,7 +787,7 @@ function slipState(slip, prog){
 
 /* ---------- ui state ---------- */
 const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'board'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false,
-  binsOf: {}, mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null };
+  binsOf: {}, binsSlip: '', mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null };
 function go(view){ ui.view = view; LS.set('opk.view', view); render(); window.scrollTo({top:0}); }
 const curSlip = () => store.slips[ui.slipId];
 const curProg = () => store.progress[ui.slipId];
@@ -1046,7 +1051,7 @@ function renderPick(){
   } else {
     const i = info(slip, prog, ui.cur); const l = i.l; const bcs = map[l.code] || [];
     const verified = i.p > 0;
-    ensureBins(l.code);
+    ensureBins(slip);
     main = `<div class="card" aria-live="polite">
       ${(() => { const m = mainLoc(l); const subs = l.loc ? (l.alt ? [l.alt] : []) : [...new Set(String(l.sloc || '').split('/').map(x => x.trim()).filter(x => x && x !== m))];
         return `<div class="plate ${m ? '' : 'none'}"><div class="lbl">${l.loc ? '가야 할 위치' : m ? '재고표 위치' : '로케이션 없음'}</div>
@@ -1210,7 +1215,7 @@ async function askMove(item){
   if (!v) return false;
   const res = await mgrCall('binMove', {rows:[{code:item.code, name:item.name || '', from:v.from, to:v.to, qty:v.qty}], by: worker()});
   if (!res) return false;
-  afterWrite(); ui.binsOf = {};
+  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
   toast(`${v.from ? v.from + ' → ' : ''}${v.to} · ${v.qty}개 옮겼어요`);
   return true;
 }
@@ -1249,7 +1254,7 @@ async function countFinish(){
   const res = await mgrCall('binCount', {loc:c.loc, all: v === 'all', by: worker(),
     rows: done.map(x => ({code:x.code, name:x.name, qty:x.qty}))});
   if (!res) return;
-  afterWrite(); ui.binsOf = {};
+  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
   const diff = res.diff || [];
   ui.cnt = null; ui.mgr = 'bins'; ui.mgrQ = c.loc; ui.mgrBins = null; render();
   await ask({title: diff.length ? `차이 ${diff.length}건이 나왔어요` : '전산과 똑같았어요',
@@ -1508,7 +1513,7 @@ async function mgrSeed(){
     actions:[{label: has ? '다시 채우기' : '처음 채우기', value:true, kind:'primary'}, {label:'취소', value:false}]})) return;
   toast('자리별 재고를 만드는 중…');
   const r = await mgrCall('binSeed', {by: worker()}); if (!r) return;
-  afterWrite(); ui.binsOf = {};
+  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
   if (store.stockInfo) store.stockInfo = {...store.stockInfo, binRows: r.n};
   ui.mgrBins = null; ui.mgrItems = null; render();
   ask({title:`자리별 재고 ${r.n.toLocaleString()}줄을 만들었어요`, body: r.noLoc ? `창고번호가 없는데 재고가 있는 품목 ${r.noLoc}개는 넣지 못했어요. ‘위치 이동’에서 자리를 정해 주세요.` : '이제 자리별로 재고를 보고, 옮기고, 실사할 수 있어요.'});
@@ -1628,12 +1633,18 @@ async function markShort(k){
 /* ---------- 꺼낸 자리 고르기 ----------
    한 품목이 여러 자리에 있을 때, 작업자가 실제로 꺼낸 자리를 고르게 해요.
    피킹을 완료하면 그 자리에서 수량이 빠져요. */
-function ensureBins(code){
-  if (!code || store.mode !== 'sheet' || !(store.stockInfo && store.stockInfo.binRows)) return;
-  if (ui.binsOf[code]) return;
-  ui.binsOf[code] = {rows: [], loading: true};
-  gsCall('itemBins', {code}).then(r => { ui.binsOf[code] = {rows: (r && r.rows) || []}; if (ui.view === 'pick') render(); })
-    .catch(() => { ui.binsOf[code] = {rows: []}; });
+let binsBusy = false;
+function ensureBins(slip){
+  if (!slip || store.mode !== 'sheet' || !(store.stockInfo && store.stockInfo.binRows)) return;
+  if (ui.binsSlip === slip.id || binsBusy) return;
+  binsBusy = true; ui.binsSlip = slip.id;
+  const codes = [...new Set(slip.lines.map(l => l.code))];
+  gsCall('itemBins', {codes})
+    .then(r => { const by = (r && r.byCode) || {}; const o = {};
+      codes.forEach(c => o[c] = {rows: by[c] || []});
+      ui.binsOf = o; if (ui.view === 'pick') render(); })
+    .catch(() => { ui.binsSlip = ''; })
+    .finally(() => { binsBusy = false; });
 }
 function binPickHtml(l, i){
   const b = ui.binsOf[l.code];
@@ -1715,7 +1726,7 @@ async function finishSlip(){
   try {
     const r = await gsCall('binPickOut', {id: slip.id, by: worker()});
     GS.ver = ''; gsSoon(150);
-    ui.binsOf = {};
+    ui.binsOf = {}; ui.binsSlip = '';
     if (!r || r.already || !r.lines) return;
     const sh = (r.short || []);
     if (sh.length) ask({title:`자리 재고에서 ${r.n}개를 뺐어요`,
