@@ -95,6 +95,7 @@ dialog::backdrop{background:rgba(10,12,14,.5)}
     <button class="tab" type="button" data-v="stock" aria-pressed="true">재고 현황</button>
     <button class="tab" type="button" data-v="trace" aria-pressed="false">품목 추적</button>
     <button class="tab" type="button" data-v="slips" aria-pressed="false">전표 · 작업</button>
+    <button class="tab" type="button" data-v="moves" aria-pressed="false">움직임 장부</button>
     <button class="tab" type="button" data-v="issues" aria-pressed="false">안 맞는 것</button>
   </nav>
   <section id="view"></section>
@@ -154,7 +155,8 @@ const S = { view: 'stock', info: null, busy: false,
   stock: null, stockQ: '', stockSort: ['code', 1], stockTotal: 0,
   trace: null, traceQ: '', traceFound: null,
   slips: null, slipSort: ['at', -1], slipF: 'all',
-  issues: null, issueTab: 'diffs' };
+  issues: null, issueTab: 'diffs',
+  mv: null, mvQ: '', mvKind: '', mvAsOf: '', mvCheck: null };
 
 function setConn(ok, text){
   $('#conn').classList.toggle('live', !!ok);
@@ -385,12 +387,86 @@ function issueXls(){
     sheet('재고차이', s3, [20,40,12,12,8]), sheet('자리없음', s4, [20,40,12])]);
 }
 
+/* ---------- 움직임 장부 ----------
+   재고가 바뀐 모든 일이 번호 순으로 쌓여 있어요. 지우지 않고 되돌리기도 반대 줄로 남아요.
+   그래서 '그때 그 자리에 몇 개였나' 를 언제든 되살려 볼 수 있어요. */
+const KINDS = ['초기화','이동','자리지정','피킹출고','피킹취소','카톤담기','카톤내리기','카톤되돌리기','실사조정'];
+async function loadMoves(){
+  S.busy = true; render();
+  try {
+    if (S.mvAsOf) {
+      const r = await call('stockAsOf', {at: S.mvAsOf});
+      S.mv = {asOf: r.rows || [], until: r.until};
+    } else {
+      const r = await call('ledger', {code: S.mvQ, kind: S.mvKind, limit: 500});
+      S.mv = {rows: r.rows || [], total: r.total};
+    }
+  } catch(e){ S.mv = {rows: []}; dialog('불러오지 못했어요', `<p>${esc(e.message)}</p>`); }
+  S.busy = false; render();
+}
+async function runCheck(){
+  S.busy = true; render();
+  try { S.mvCheck = await call('selfCheck', {}); }
+  catch(e){ S.mvCheck = null; dialog('점검하지 못했어요', `<p>${esc(e.message)}</p>`); }
+  S.busy = false; render();
+}
+function viewMoves(){
+  const m = S.mv, chk = S.mvCheck;
+  let head = `<div class="card">
+    <div class="row" style="margin-bottom:10px">
+      <input class="search" id="mq" type="search" placeholder="품목코드로 좁히기" value="${esc(S.mvQ)}" style="max-width:260px">
+      <select id="mkind" class="search" style="max-width:150px"><option value="">모든 종류</option>${
+        KINDS.map(k => `<option value="${k}"${S.mvKind === k ? ' selected' : ''}>${k}</option>`).join('')}</select>
+      <input class="search" id="masof" type="date" value="${esc(S.mvAsOf)}" style="max-width:160px" title="그 날 끝난 시점의 자리 재고를 되살려 봐요">
+      <button class="btn primary" id="mgo" type="button">보기</button>
+      <button class="btn" id="mclr" type="button">지우기</button>
+      <button class="btn" id="mchk" type="button">숫자 맞는지 점검</button>
+      <button class="btn" id="mxls" type="button" ${m ? '' : 'disabled'}>엑셀로 받기</button>
+    </div>`;
+  if (chk) head += chk.ok
+    ? `<div class="banner ok">장부와 자리별 재고가 모두 맞아요. 장부 ${num((chk.bins||{}).rows || 0)}줄 · 시트 머리글도 정상이에요.</div>`
+    : `<div class="banner bad">안 맞는 데가 있어요 —
+        ${(chk.heads||[]).length ? `시트 머리글 ${(chk.heads||[]).length}곳 (${esc((chk.heads||[]).slice(0,3).map(h => h.sheet + (h.col ? ' ' + h.col + '열' : '')).join(', '))})` : ''}
+        ${((chk.bins||{}).bad||[]).length ? ` 자리 수량 ${((chk.bins||{}).bad||[]).length}건 (${esc(((chk.bins||{}).bad||[]).slice(0,3).map(b => b.code + ' ' + b.loc + ' 장부 ' + b.ledger + ' / 표 ' + b.cache).join(', '))})` : ''}
+        ${((chk.bins||{}).badBox||[]).length ? ` 박스 ${((chk.bins||{}).badBox||[]).length}건` : ''}
+        <br>자리 수량이 안 맞으면 폰 앱 재고 관리에서 다시 채우거나, 담당자에게 ‘다시 계산’을 부탁하세요. 장부는 그대로 남아 있어요.</div>`;
+  head += `</div>`;
+  if (!m) return head + `<div class="card"><p class="muted">‘보기’ 를 누르면 최근 움직임이 나와요. 날짜를 넣으면 그 날 끝난 시점의 자리 재고를 되살려 봐요.</p></div>`;
+  if (m.asOf) {
+    const rows = m.asOf;
+    return head + `<div class="card"><h3>${esc(S.mvAsOf)} 끝난 시점의 자리 재고 <span class="muted">· 장부 ${num(m.until||0)}번까지 접은 결과 · ${num(rows.length)}줄</span></h3>
+      ${rows.length ? `<div class="wrap"><table><thead><tr><th>자리</th><th>품목코드</th><th>품목명</th><th class="n">수량</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td class="mono">${esc(r.loc)}${r.box ? ' <span class="muted">(박스)</span>' : ''}</td><td class="mono">${esc(r.code)}</td><td>${esc(r.name)}</td><td class="n">${num(r.qty)}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="muted">그 시점에는 자리 재고가 없었어요.</p>'}</div>`;
+  }
+  const rows = m.rows;
+  return head + `<div class="card"><h3>최근 움직임 <span class="muted">· ${num(rows.length)}줄 보임 / 전체 ${num(m.total||0)}줄</span></h3>
+    ${rows.length ? `<div class="wrap"><table><thead><tr><th class="n">번호</th><th>시각</th><th>무슨 일</th><th>품목코드</th><th>품목명</th><th class="n">수량</th><th>나간 자리</th><th>들어온 자리</th><th>근거</th><th>사람</th><th>이카운트</th><th>메모</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="n mono">${r.no}</td><td class="mono">${esc(r.at)}</td><td>${esc(r.kind)}</td>
+        <td class="mono"><button class="link mono" data-trace="${esc(r.code)}" type="button">${esc(r.code)}</button></td><td>${esc(r.name)}</td>
+        <td class="n">${num(r.qty)}</td><td class="mono">${esc(r.from)}</td><td class="mono">${esc(r.to)}</td>
+        <td class="mono">${esc(r.ref)}</td><td>${esc(r.by)}</td><td class="mono">${esc(r.sent) || '<span class="muted">—</span>'}</td><td class="muted">${esc(r.memo)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">해당하는 움직임이 없어요.</p>'}</div>`;
+}
+function moveXls(){
+  const m = S.mv; if (!m) return;
+  if (m.asOf) {
+    const a = [['자리','품목코드','품목명','수량','박스에 담긴 것']];
+    m.asOf.forEach(r => a.push([r.loc, r.code, r.name, r.qty, r.box ? 'O' : '']));
+    save(`시점재고_${S.mvAsOf.replace(/-/g,'')}.xlsx`, [sheet('시점재고', a, [16,20,40,10,14])]);
+    return;
+  }
+  const a = [['번호','시각','무슨 일','품목코드','품목명','수량','나간 자리','들어온 자리','근거','사람','이카운트 보낸시각','메모']];
+  m.rows.forEach(r => a.push([r.no, r.at, r.kind, r.code, r.name, r.qty, r.from, r.to, r.ref, r.by, r.sent, r.memo]));
+  save(`움직임장부_${today()}.xlsx`, [sheet('움직임', a, [8,17,14,20,40,10,14,14,18,10,17,30])]);
+}
 /* ---------- 그리기 ---------- */
 function render(){
   renderTop();
   document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', S.view === b.dataset.v));
   const el = $('#view');
-  el.innerHTML = S.view === 'stock' ? viewStock() : S.view === 'trace' ? viewTrace() : S.view === 'slips' ? viewSlips() : viewIssues();
+  el.innerHTML = S.view === 'stock' ? viewStock() : S.view === 'trace' ? viewTrace()
+    : S.view === 'slips' ? viewSlips() : S.view === 'moves' ? viewMoves() : viewIssues();
   el.querySelectorAll('[data-sort]').forEach(h => h.onclick = () => {
     const key = h.dataset.sort;
     const cur = S.view === 'stock' ? S.stockSort : S.slipSort;
@@ -411,6 +487,14 @@ function render(){
   const tx = $('#txls'); if (tx) tx.onclick = traceXls;
   const px = $('#pxls'); if (px) px.onclick = slipXls;
   const ix = $('#ixls'); if (ix) ix.onclick = issueXls;
+  const mq = $('#mq'); if (mq) { mq.oninput = () => S.mvQ = mq.value;
+    mq.onkeydown = e => { if (e.key === 'Enter') { S.mvQ = mq.value; loadMoves(); } }; }
+  const mk = $('#mkind'); if (mk) mk.onchange = () => { S.mvKind = mk.value; loadMoves(); };
+  const ma = $('#masof'); if (ma) ma.onchange = () => { S.mvAsOf = ma.value; };
+  const mg = $('#mgo'); if (mg) mg.onclick = () => { S.mvQ = $('#mq').value; S.mvAsOf = $('#masof').value; loadMoves(); };
+  const mc = $('#mclr'); if (mc) mc.onclick = () => { S.mvQ = ''; S.mvKind = ''; S.mvAsOf = ''; S.mv = null; S.mvCheck = null; render(); };
+  const mh = $('#mchk'); if (mh) mh.onclick = runCheck;
+  const mx = $('#mxls'); if (mx) mx.onclick = moveXls;
 }
 async function refresh(){
   if (!API) { setConn(false, '주소를 넣어 주세요'); $('#warn').innerHTML = '<div class="banner bad">구글 시트 웹 앱 주소가 없어요. 오른쪽 위 연결 단추를 눌러 넣어 주세요. 폰 앱에서 쓰는 주소와 같은 주소예요.</div>'; render(); return; }
@@ -420,15 +504,17 @@ async function refresh(){
   } catch(e){ setConn(false, '연결 끊김'); $('#warn').innerHTML = `<div class="banner bad">연결하지 못했어요 — ${esc(e.message)}</div>`; }
   if (S.view === 'slips' && !S.slips) loadSlips();
   else if (S.view === 'issues' && !S.issues) loadIssues();
+  else if (S.view === 'moves' && !S.mv) loadMoves();
   else render();
 }
 document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
   S.view = b.dataset.v;
   if (S.view === 'slips' && !S.slips) return loadSlips();
   if (S.view === 'issues' && !S.issues) return loadIssues();
+  if (S.view === 'moves' && !S.mv) return loadMoves();
   render();
 });
-$('#reload').onclick = () => { S.stock = null; S.slips = null; S.issues = null; S.trace = null; S.traceFound = null; refresh(); };
+$('#reload').onclick = () => { S.stock = null; S.slips = null; S.issues = null; S.trace = null; S.traceFound = null; S.mv = null; S.mvCheck = null; refresh(); };
 $('#conn').onclick = () => {
   dialog('구글 시트 연결', `<p class="muted">폰 앱과 같은 웹 앱 주소를 넣어 주세요.</p>
     <input class="search" id="apiUrl" style="width:100%" value="${esc(API)}" placeholder="https://script.google.com/macros/s/…/exec">`,
