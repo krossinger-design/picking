@@ -95,6 +95,7 @@ dialog::backdrop{background:rgba(10,12,14,.5)}
     <button class="tab" type="button" data-v="stock" aria-pressed="true">재고 현황</button>
     <button class="tab" type="button" data-v="trace" aria-pressed="false">품목 추적</button>
     <button class="tab" type="button" data-v="slips" aria-pressed="false">전표 · 작업</button>
+    <button class="tab" type="button" data-v="flow" aria-pressed="false">입고 · 보류 · 패킹</button>
     <button class="tab" type="button" data-v="moves" aria-pressed="false">움직임 장부</button>
     <button class="tab" type="button" data-v="issues" aria-pressed="false">안 맞는 것</button>
   </nav>
@@ -156,7 +157,8 @@ const S = { view: 'stock', info: null, busy: false,
   trace: null, traceQ: '', traceFound: null,
   slips: null, slipSort: ['at', -1], slipF: 'all',
   issues: null, issueTab: 'diffs',
-  mv: null, mvQ: '', mvKind: '', mvAsOf: '', mvCheck: null };
+  mv: null, mvQ: '', mvKind: '', mvAsOf: '', mvCheck: null,
+  flow: null, flowTab: 'inbs', invQ: '' };
 
 function setConn(ok, text){
   $('#conn').classList.toggle('live', !!ok);
@@ -208,14 +210,14 @@ function viewStock(){
     ${rows ? (sorted.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr>
         ${th('품목코드','code',S.stockSort)}${th('품목명','name',S.stockSort)}${th('바코드','bc',S.stockSort)}
         ${th('규격','spec',S.stockSort)}${th('이카운트 재고','stk',S.stockSort,0,'num')}${th('자리 합계','binQty',S.stockSort,0,'num')}
-        ${th('차이','gap',S.stockSort,0,'num')}${th('자리별 수량','',S.stockSort)}${th('','' ,S.stockSort)}</tr></thead><tbody>
+        ${th('보류','holdQty',S.stockSort,0,'num')}${th('차이','gap',S.stockSort,0,'num')}${th('자리별 수량','',S.stockSort)}${th('','' ,S.stockSort)}</tr></thead><tbody>
         ${sorted.map(r => `<tr>
           <td class="mono">${esc(r.code)}</td>
           <td class="wrap">${esc(r.name)}</td>
           <td class="mono muted">${esc(r.bc || '-')}</td>
           <td class="muted">${esc([r.spec, r.size].filter(Boolean).join(' · ') || '-')}</td>
           <td class="num">${num(r.stk)}</td>
-          <td class="num">${num(r.binQty)}</td>
+          <td class="num">${r.holdQty ? `<span class="chip warn">${num(r.holdQty)}</span>` : ''}</td>
           <td class="num">${r.gap === '' ? '' : (r.gap === 0 ? '<span class="chip ok">맞음</span>' : `<span class="chip ${r.gap < 0 ? 'bad' : 'warn'}">${r.gap > 0 ? '+' : ''}${r.gap}</span>`)}</td>
           <td class="wrap mono">${r.bins.length ? r.bins.map(b => `${esc(b[0])} <b>${b[1]}</b>`).join(' · ') : '<span class="chip bad">자리 없음</span>'}</td>
           <td><button class="btn small" data-trace="${esc(r.code)}" type="button">추적</button></td>
@@ -224,12 +226,12 @@ function viewStock(){
 }
 function stockXls(){
   const rows = sortBy(S.stock, S.stockSort[0], S.stockSort[1]);
-  const a1 = [['품목코드','품목명','바코드','규격','사이즈','이카운트 재고','자리 합계','차이','대표 자리','자리별 수량']];
-  rows.forEach(r => a1.push([r.code, r.name, r.bc, r.spec, r.size, r.stk, r.binQty, r.gap, r.loc,
+  const a1 = [['품목코드','품목명','바코드','규격','사이즈','이카운트 재고','자리 합계','보류','차이','대표 자리','자리별 수량']];
+  rows.forEach(r => a1.push([r.code, r.name, r.bc, r.spec, r.size, r.stk, r.binQty, r.holdQty || 0, r.gap, r.loc,
     r.bins.map(b => `${b[0]} ${b[1]}`).join(' / ')]));
   const a2 = [['품목코드','품목명','자리','수량']];
   rows.forEach(r => r.bins.forEach(b => a2.push([r.code, r.name, b[0], b[1]])));
-  save(`재고현황_${today()}.xlsx`, [sheet('재고현황', a1, [20,40,16,14,14,12,12,8,16,40]), sheet('자리별', a2, [20,40,16,10])]);
+  save(`재고현황_${today()}.xlsx`, [sheet('재고현황', a1, [20,40,16,14,14,12,12,8,8,16,40]), sheet('자리별', a2, [20,40,16,10])]);
 }
 
 /* ---------- 품목 추적 ---------- */
@@ -351,8 +353,9 @@ function viewIssues(){
   if (S.issueTab === 'shorts') body = I.shorts.length ? tbl(['전표','품목코드','품목명','요청','담음','사유','작업자','시각'],
     I.shorts.map(r => [['mono', r.slip], ['mono', r.code], ['wrap', r.name], ['num', r.want], ['num', r.got],
       ['', `<span class="chip bad">${esc(r.why || '-')}</span>`], ['', r.by], ['mono', r.at]])) : none('부족으로 기록된 품목이 없어요.');
-  if (S.issueTab === 'gaps') body = `<div class="banner warn" style="margin-bottom:10px">이카운트는 <b>창고이동 전표를 만드는 순간</b> 재고를 빼요. 그래서 전표를 만들고 아직 피킹하지 않았으면, 선반에는 물건이 있으니 <b>자리 합계가 더 많게</b> 나와요 — 피킹을 마치면 맞아떨어집니다. 그 외의 차이는 실사로 확인해 주세요.</div>` + (I.gaps.length ? tbl(['품목코드','품목명','이카운트 재고','자리 합계','차이',''],
-    I.gaps.map(r => [['mono', r.code], ['wrap', r.name], ['num', r.stk], ['num', r.bin],
+  if (S.issueTab === 'gaps') body = `<div class="banner warn" style="margin-bottom:10px">여기 '차이'는 <b>자리 합계 + 보류 − 이카운트 재고</b> 예요. 보류는 입고 대기·반품 대기·불량 보관·박스에 담긴 것이고, 전부 이카운트가 아직 세고 있는 물건이라 더해서 비교합니다.<br>
+    이카운트는 <b>출고 전표를 만드는 순간</b> 재고를 빼요. 그래서 전표를 만들고 아직 피킹하지 않았으면 선반에 물건이 남아 있어 <b>차이가 플러스</b>로 나옵니다 — 피킹을 마치면 맞아떨어져요. 그 외의 차이는 실사로 확인해 주세요.</div>` + (I.gaps.length ? tbl(['품목코드','품목명','이카운트 재고','자리 합계','보류','차이',''],
+    I.gaps.map(r => [['mono', r.code], ['wrap', r.name], ['num', r.stk], ['num', r.bin], ['num', r.hold || 0],
       ['num', `<span class="chip ${r.gap < 0 ? 'bad' : 'warn'}">${r.gap > 0 ? '+' : ''}${r.gap}</span>`],
       ['', `<button class="btn small" data-trace="${esc(r.code)}" type="button">추적</button>`]])) : none('이카운트 재고와 자리 합계가 모두 맞아요.'));
   if (S.issueTab === 'noBin') body = I.noBin.length ? tbl(['품목코드','품목명','이카운트 재고',''],
@@ -379,14 +382,105 @@ function issueXls(){
   I.diffs.forEach(r => s1.push([r.at, r.loc, r.code, r.name, r.was, r.now, r.gap, r.by, r.sent]));
   const s2 = [['전표','품목코드','품목명','요청수량','담은수량','사유','작업자','시각']];
   I.shorts.forEach(r => s2.push([r.slip, r.code, r.name, r.want, r.got, r.why, r.by, r.at]));
-  const s3 = [['품목코드','품목명','이카운트 재고','자리 합계','차이']];
-  I.gaps.forEach(r => s3.push([r.code, r.name, r.stk, r.bin, r.gap]));
+  const s3 = [['품목코드','품목명','이카운트 재고','자리 합계','보류(입고·반품·불량·박스)','차이']];
+  I.gaps.forEach(r => s3.push([r.code, r.name, r.stk, r.bin, r.hold || 0, r.gap]));
   const s4 = [['품목코드','품목명','이카운트 재고']];
   I.noBin.forEach(r => s4.push([r.code, r.name, r.stk]));
   save(`안맞는것_${today()}.xlsx`, [sheet('실사차이', s1, [17,16,20,40,10,10,8,10,10]), sheet('피킹부족', s2, [18,20,40,10,10,14,10,17]),
-    sheet('재고차이', s3, [20,40,12,12,8]), sheet('자리없음', s4, [20,40,12])]);
+    sheet('재고차이', s3, [20,40,12,12,24,8]), sheet('자리없음', s4, [20,40,12])]);
 }
 
+/* ---------- 입고 · 보류 · 패킹 ----------
+   창고 안에서 '아직 끝나지 않은 일' 을 한 곳에 모아 봐요.
+   선반에 없는 물건이 어디에 얼마나 묶여 있는지가 여기서 다 보입니다. */
+async function loadFlow(){
+  S.busy = true; render();
+  try {
+    const [inbs, hold, packs, rets] = await Promise.all([
+      call('inbList', {}), call('holdStock', {}), call('packList', {}), call('retList', {limit: 200})]);
+    S.flow = { inbs: inbs.rows || [], hold: hold.rows || [], packs: packs.rows || [], rets: rets.rows || [] };
+  } catch(e){ S.flow = {inbs:[], hold:[], packs:[], rets:[]}; dialog('불러오지 못했어요', `<p>${esc(e.message)}</p>`); }
+  S.busy = false; render();
+}
+const HOLDNM = {'입고:':'입고 대기', '반품:':'반품 대기', '불량:':'불량 보관', '박스:':'박스에 담김', '출고:':'출고 대기'};
+function viewFlow(){
+  const F = S.flow;
+  const tabs = [['inbs','입고'], ['hold','보류 재고'], ['packs','패킹 · 송장'], ['rets','반품']];
+  let head = `<div class="card"><div class="row" style="margin-bottom:10px">
+      ${tabs.map(([k, t]) => `<button class="btn ${S.flowTab === k ? 'primary' : ''}" type="button" data-ft="${k}">${t}</button>`).join('')}
+      <button class="btn" id="fxls" type="button" ${F ? '' : 'disabled'}>엑셀로 받기</button>
+    </div></div>`;
+  if (!F) return head + '<div class="card"><p class="muted">불러오는 중…</p></div>';
+  if (S.flowTab === 'inbs') {
+    const r = F.inbs;
+    return head + `<div class="card"><h3>입고 <span class="muted">· ${num(r.length)}건</span></h3>
+      ${r.length ? `<div class="wrap"><table><thead><tr><th>입고번호</th><th>거래처</th><th>예정일</th><th class="n">품목</th><th class="n">검수</th><th class="n">차이</th><th>상태</th><th>작업자</th><th>완료</th></tr></thead><tbody>
+        ${r.map(x => `<tr><td class="mono">${esc(x.no)}</td><td>${esc(x.vendor)}</td><td class="mono">${esc(x.eta)}</td>
+          <td class="n">${x.n}</td><td class="n">${x.done}</td><td class="n">${x.gap ? `<b style="color:var(--bad)">${x.gap}</b>` : 0}</td>
+          <td>${esc(x.status)}</td><td>${esc(x.worker)}</td><td class="mono">${esc(x.end)}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="muted">아직 올린 입고가 없어요.</p>'}</div>`;
+  }
+  if (S.flowTab === 'hold') {
+    const g = {};
+    F.hold.forEach(x => { (g[x.area] = g[x.area] || []).push(x); });
+    const order = ['입고:', '반품:', '불량:', '박스:', '출고:'];
+    const sum = a => (g[a] || []).reduce((s, x) => s + x.qty, 0);
+    return head + `<div class="card">
+      <h3>선반에 없는 물건</h3>
+      <div class="kpis" style="margin:10px 0">${order.map(a =>
+        `<div class="kpi ${sum(a) ? 'warn' : ''}"><b>${num(sum(a))}</b><span>${HOLDNM[a]}</span></div>`).join('')}</div>
+      <div class="banner">이카운트 재고 = <b>자리 합계 + 입고 대기 + 반품 대기 + 불량 보관 + 박스에 담김</b> 입니다.
+        <b>출고 대기</b>는 전표를 만들 때 이카운트가 이미 뺐으니 더하지 않아요.</div>
+      ${order.map(a => (g[a] || []).length ? `<h3 style="margin-top:14px">${HOLDNM[a]} <span class="muted">· ${num(sum(a))}개</span></h3>
+        <div class="wrap"><table><thead><tr><th>자리</th><th>품목코드</th><th>품목명</th><th class="n">수량</th></tr></thead><tbody>
+          ${g[a].map(x => `<tr><td class="mono">${esc(x.loc)}</td>
+            <td class="mono"><button class="link mono" data-trace="${esc(x.code)}" type="button">${esc(x.code)}</button></td>
+            <td>${esc(x.name)}</td><td class="n">${num(x.qty)}</td></tr>`).join('')}
+        </tbody></table></div>` : '').join('') || '<p class="muted">모든 물건이 선반에 있어요.</p>'}</div>`;
+  }
+  if (S.flowTab === 'packs') {
+    const r = F.packs;
+    return head + `<div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <input class="search" id="iq" type="search" placeholder="송장번호 · 박스번호 · 전표번호" value="${esc(S.invQ)}" style="max-width:320px">
+        <button class="btn primary" id="igo" type="button">찾기</button>
+      </div>
+      ${S.inv ? `<h3>찾은 박스 ${num(S.inv.length)}개</h3>
+        ${S.inv.length ? `<div class="wrap"><table><thead><tr><th>박스</th><th>전표</th><th>운송사</th><th>송장번호</th><th>무게</th><th>상태</th><th>출고시각</th><th>내용물</th></tr></thead><tbody>
+          ${S.inv.map(b => `<tr><td class="mono">${esc(b.box)}</td><td class="mono">${esc(b.no)}</td><td>${esc(b.carrier)}</td>
+            <td class="mono">${esc(b.invoice)}</td><td class="mono">${esc(b.weight)}</td><td>${esc(b.status)}</td>
+            <td class="mono">${esc(b.shipped)}</td><td>${(b.rows || []).map(x => esc(x.name || x.code) + ' ' + x.qty).join(', ')}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="muted">그런 번호를 찾지 못했어요.</p>'}` : ''}
+      <h3 style="margin-top:14px">패킹 현황 <span class="muted">· ${num(r.length)}건</span></h3>
+      ${r.length ? `<div class="wrap"><table><thead><tr><th>전표번호</th><th>입고처</th><th>상태</th><th class="n">줄</th><th class="n">담은 박스</th><th class="n">송장</th><th class="n">아직 안 쌈</th><th>작업자</th></tr></thead><tbody>
+        ${r.map(x => `<tr><td class="mono">${esc(x.no)}</td><td>${esc(x.to)}</td><td>${esc(x.status)}${x.urgent ? ' · <b style="color:var(--bad)">긴급</b>' : ''}</td>
+          <td class="n">${x.n}</td><td class="n">${x.boxes}</td><td class="n">${x.invoices}</td>
+          <td class="n">${x.wait ? `<b style="color:var(--bad)">${num(x.wait)}</b>` : 0}</td><td>${esc(x.worker)}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="muted">쌀 것이 없어요.</p>'}</div>`;
+  }
+  const r = F.rets;
+  return head + `<div class="card"><h3>반품 <span class="muted">· ${num(r.length)}건</span></h3>
+    ${r.length ? `<div class="wrap"><table><thead><tr><th>번호</th><th>구분</th><th>상대처</th><th>품목코드</th><th>품목명</th><th class="n">수량</th><th>판정</th><th>사유</th><th>자리</th><th>접수</th></tr></thead><tbody>
+      ${r.map(x => `<tr><td class="mono">${esc(x.no)}</td><td>${esc(x.kind)}</td><td>${esc(x.who)}</td>
+        <td class="mono"><button class="link mono" data-trace="${esc(x.code)}" type="button">${esc(x.code)}</button></td>
+        <td>${esc(x.name)}</td><td class="n">${num(x.qty)}</td><td>${esc(x.judge)}</td><td>${esc(x.why)}</td>
+        <td class="mono">${esc(x.loc)}</td><td class="mono">${esc(x.at)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="muted">아직 반품 기록이 없어요.</p>'}</div>`;
+}
+function flowXls(){
+  const F = S.flow; if (!F) return;
+  const a1 = [['입고번호','거래처','입고창고','예정일','품목수','검수완료','차이','상태','작업자','올린시각','완료시각']];
+  F.inbs.forEach(x => a1.push([x.no, x.vendor, x.wh, x.eta, x.n, x.done, x.gap, x.status, x.worker, x.at, x.end]));
+  const a2 = [['구역','자리','품목코드','품목명','수량']];
+  F.hold.forEach(x => a2.push([HOLDNM[x.area] || x.area, x.loc, x.code, x.name, x.qty]));
+  const a3 = [['전표번호','입고처','상태','줄','담은 박스','송장','아직 안 쌈','작업자']];
+  F.packs.forEach(x => a3.push([x.no, x.to, x.status, x.n, x.boxes, x.invoices, x.wait, x.worker]));
+  const a4 = [['반품번호','구분','상대처','품목코드','품목명','수량','판정','사유','자리','접수','처리']];
+  F.rets.forEach(x => a4.push([x.no, x.kind, x.who, x.code, x.name, x.qty, x.judge, x.why, x.loc, x.at, x.done]));
+  save(`입고_보류_패킹_${today()}.xlsx`, [sheet('입고', a1, [16,18,14,12,8,9,7,11,10,17,17]),
+    sheet('보류재고', a2, [12,18,20,40,9]), sheet('패킹', a3, [16,18,10,7,11,8,11,10]),
+    sheet('반품', a4, [16,12,16,20,36,8,8,14,18,17,17])]);
+}
 /* ---------- 움직임 장부 ----------
    재고가 바뀐 모든 일이 번호 순으로 쌓여 있어요. 지우지 않고 되돌리기도 반대 줄로 남아요.
    그래서 '그때 그 자리에 몇 개였나' 를 언제든 되살려 볼 수 있어요. */
@@ -466,7 +560,8 @@ function render(){
   document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', S.view === b.dataset.v));
   const el = $('#view');
   el.innerHTML = S.view === 'stock' ? viewStock() : S.view === 'trace' ? viewTrace()
-    : S.view === 'slips' ? viewSlips() : S.view === 'moves' ? viewMoves() : viewIssues();
+    : S.view === 'slips' ? viewSlips() : S.view === 'moves' ? viewMoves()
+    : S.view === 'flow' ? viewFlow() : viewIssues();
   el.querySelectorAll('[data-sort]').forEach(h => h.onclick = () => {
     const key = h.dataset.sort;
     const cur = S.view === 'stock' ? S.stockSort : S.slipSort;
@@ -495,6 +590,19 @@ function render(){
   const mc = $('#mclr'); if (mc) mc.onclick = () => { S.mvQ = ''; S.mvKind = ''; S.mvAsOf = ''; S.mv = null; S.mvCheck = null; render(); };
   const mh = $('#mchk'); if (mh) mh.onclick = runCheck;
   const mx = $('#mxls'); if (mx) mx.onclick = moveXls;
+  el.querySelectorAll('[data-ft]').forEach(b => b.onclick = () => { S.flowTab = b.dataset.ft; S.inv = null; render(); });
+  const fx = $('#fxls'); if (fx) fx.onclick = flowXls;
+  const iq = $('#iq'); if (iq) { iq.oninput = () => S.invQ = iq.value;
+    iq.onkeydown = e => { if (e.key === 'Enter') invFind(); }; }
+  const ig = $('#igo'); if (ig) ig.onclick = invFind;
+}
+async function invFind(){
+  const q = ($('#iq') || {}).value || S.invQ;
+  if (!q || !q.trim()) return;
+  S.invQ = q.trim(); S.busy = true; render();
+  try { const r = await call('invoiceFind', {q: S.invQ}); S.inv = r.rows || []; }
+  catch(e){ S.inv = []; }
+  S.busy = false; render();
 }
 async function refresh(){
   if (!API) { setConn(false, '주소를 넣어 주세요'); $('#warn').innerHTML = '<div class="banner bad">구글 시트 웹 앱 주소가 없어요. 오른쪽 위 연결 단추를 눌러 넣어 주세요. 폰 앱에서 쓰는 주소와 같은 주소예요.</div>'; render(); return; }
@@ -505,6 +613,7 @@ async function refresh(){
   if (S.view === 'slips' && !S.slips) loadSlips();
   else if (S.view === 'issues' && !S.issues) loadIssues();
   else if (S.view === 'moves' && !S.mv) loadMoves();
+  else if (S.view === 'flow' && !S.flow) loadFlow();
   else render();
 }
 document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
@@ -512,9 +621,10 @@ document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
   if (S.view === 'slips' && !S.slips) return loadSlips();
   if (S.view === 'issues' && !S.issues) return loadIssues();
   if (S.view === 'moves' && !S.mv) return loadMoves();
+  if (S.view === 'flow' && !S.flow) return loadFlow();
   render();
 });
-$('#reload').onclick = () => { S.stock = null; S.slips = null; S.issues = null; S.trace = null; S.traceFound = null; S.mv = null; S.mvCheck = null; refresh(); };
+$('#reload').onclick = () => { S.stock = null; S.slips = null; S.issues = null; S.trace = null; S.traceFound = null; S.mv = null; S.mvCheck = null; S.flow = null; S.inv = null; refresh(); };
 $('#conn').onclick = () => {
   dialog('구글 시트 연결', `<p class="muted">폰 앱과 같은 웹 앱 주소를 넣어 주세요.</p>
     <input class="search" id="apiUrl" style="width:100%" value="${esc(API)}" placeholder="https://script.google.com/macros/s/…/exec">`,
