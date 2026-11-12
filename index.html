@@ -37,7 +37,7 @@
 [hidden]{display:none!important}
 body{margin:0}
 html,body{background:var(--ground)}
-body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:0 96px}
+body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:0 40px}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--plate);outline-offset:2px}
@@ -318,43 +318,45 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:720px){ .pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start} }
+/* 처음 화면 — 일곱 단계 큰 단추 */
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (min-width:680px){ .steps{grid-template-columns:repeat(3,1fr)} }
+.step{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:104px;padding:14px;
+  background:var(--card);border:1px solid var(--line);border-radius:14px;text-align:left;cursor:pointer;
+  box-shadow:0 1px 0 rgba(0,0,0,.03)}
+.step:active{transform:translateY(1px)}
+.step .no{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:7px;
+  background:var(--plate);color:var(--plate-ink);font-size:12px;font-weight:800}
+.step .nm{font-size:17px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.step .sub{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+.step .cnt{margin-top:auto;font-size:13px;font-weight:700;color:var(--ink-2)}
+.step .cnt b{font-size:19px;color:var(--ink)}
+.step.hot{border-color:var(--bad);box-shadow:0 0 0 2px rgba(189,53,40,.12)}
+.step.hot .cnt b{color:var(--bad)}
+.brand.tap{background:none;border:0;padding:0;font:inherit;color:inherit;display:flex;align-items:center;gap:8px;cursor:pointer}
 </style>
 
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><i aria-hidden="true"></i><span>오더피킹</span></div>
+  <button id="homeBtn" class="brand tap" type="button" title="처음 화면으로"><i aria-hidden="true"></i><span id="hereName">이천창고 WMS</span></button>
   <button id="syncPill" class="pill tap" type="button" title="저장 위치"><span class="dot"></span><span id="syncText">연결 중</span></button>
   <button id="workerPill" class="pill tap" type="button" title="작업자 이름 바꾸기">작업자 설정</button>
 </header>
 
 <main>
-  <section id="view-board" class="wrap section" aria-label="전표 현황"></section>
+  <section id="view-home" class="wrap section" aria-label="처음 화면"></section>
+  <section id="view-inb" class="wrap section" aria-label="인바운드" hidden></section>
+  <section id="view-board" class="wrap section" aria-label="아웃바운드" hidden></section>
+  <section id="view-put" class="wrap section" aria-label="적재" hidden></section>
+  <section id="view-ret" class="wrap section" aria-label="반품" hidden></section>
   <section id="view-pick" class="wrap" aria-label="피킹" hidden></section>
-  <section id="view-codes" class="wrap section" aria-label="바코드" hidden></section>
+  <section id="view-pack" class="wrap section" aria-label="패킹" hidden></section>
+  <section id="view-codes" class="wrap section" aria-label="재고 조회" hidden></section>
   <section id="view-reg" class="wrap section" aria-label="재고 관리" hidden></section>
 </main>
 
-<nav class="tabbar" aria-label="화면 이동">
-  <div class="in">
-    <button class="tab" type="button" data-tab="board" id="tab-board">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5"/></svg>
-      <span>전표 현황</span>
-    </button>
-    <button class="tab" type="button" data-tab="pick" id="tab-pick">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>
-      <span>피킹<span id="pickBadge"></span></span>
-    </button>
-    <button class="tab" type="button" data-tab="codes" id="tab-codes">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5v14M7 5v14M10.5 5v14M13 5v14M17 5v14M20 5v14" stroke-linecap="round"/></svg>
-      <span>재고 조회</span>
-    </button>
-    <button class="tab" type="button" data-tab="reg" id="tab-reg">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M12 11v9M4 8.5 12 13l8-4.5" /><circle cx="18.5" cy="6" r="3.2" fill="var(--plate)" stroke="none"/><path d="M18.5 4.4v3.2M16.9 6h3.2" stroke="var(--plate-ink)" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>재고 관리<span id="regBadge"></span></span>
-    </button>
-  </div>
-</nav>
+
 
 <div id="scanner" class="scanner" hidden>
   <video id="video" playsinline muted></video>
@@ -786,9 +788,21 @@ function slipState(slip, prog){
 }
 
 /* ---------- ui state ---------- */
-const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'board'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false,
-  binsOf: {}, binsSlip: '', car: null, carQ: '', carLog: null, carList: null, mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null };
-function go(view){ ui.view = view; LS.set('opk.view', view); render(); window.scrollTo({top:0}); }
+const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'home'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false,
+  binsOf: {}, binsSlip: '', car: null, carQ: '', carLog: null, carList: null, mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null,
+  inbs: null, inb: null, hold: null, rets: null, packs: null, pack: null };
+function go(view){
+  ui.view = view; LS.set('opk.view', view);
+  if (view === 'inb') { ui.inb = null; ui.inbs = null; }
+  if (view === 'put') ui.hold = null;
+  if (view === 'ret') { ui.rets = null; ui.hold = null; }
+  if (view === 'pack') { ui.pack = null; ui.packs = null; }
+  render(); window.scrollTo({top:0});
+  if (view === 'inb') inbLoad();
+  if (view === 'put') putLoad();
+  if (view === 'ret') retLoad();
+  if (view === 'pack') packLoad();
+}
 const curSlip = () => store.slips[ui.slipId];
 const curProg = () => store.progress[ui.slipId];
 /* 피킹 순서: 메인 로케이션('/' 앞) 기준. 전표에 위치가 없으면 재고표 메인 위치로. 구역-열-단 칸별로 숫자까지 비교 */
@@ -832,19 +846,19 @@ const I = {
 };
 
 /* ---------- render ---------- */
+const VIEWS = ['home', 'inb', 'board', 'put', 'ret', 'pick', 'pack', 'codes', 'reg'];
 function render(){
-  ['board', 'pick', 'codes', 'reg'].forEach(v => {
-    $('#view-' + v).hidden = ui.view !== v;
-    $('#tab-' + v).setAttribute('aria-current', ui.view === v ? 'page' : 'false');
-  });
+  if (VIEWS.indexOf(ui.view) < 0) ui.view = 'home';
+  VIEWS.forEach(v => { $('#view-' + v).hidden = ui.view !== v; });
   const w = worker(); $('#workerPill').textContent = w ? `작업자 ${w}` : '작업자 설정';
-  const slip = curSlip();
-  if (slip) { const st = stats(slip, curProg()); $('#pickBadge').innerHTML = st.pending ? `<span class="badge">${st.pending}</span>` : ''; }
-  else $('#pickBadge').innerHTML = '';
-  const si0 = store.stockInfo || {}; const ln = (si0.locNew || 0) + (si0.countNew || 0) + (si0.cartons || 0);
-  $('#regBadge').innerHTML = ln ? `<span class="badge">${ln}</span>` : '';
-  if (ui.view === 'board') renderBoard();
+  $('#hereName').textContent = VIEWNM[ui.view] || '이천창고 WMS';
+  if (ui.view === 'home') renderHome();
+  else if (ui.view === 'inb') renderInb();
+  else if (ui.view === 'board') renderBoard();
+  else if (ui.view === 'put') renderPut();
+  else if (ui.view === 'ret') renderRet();
   else if (ui.view === 'pick') renderPick();
+  else if (ui.view === 'pack') renderPack();
   else if (ui.view === 'reg') renderMgr();
   else renderCodes();
   if (!$('#scanner').hidden) renderMini();
@@ -1026,7 +1040,7 @@ function slipCard(s, showFolder){
 function renderPick(){
   const el = $('#view-pick'); const slip = curSlip();
   if (!slip) {
-    el.innerHTML = `<div class="section"><div class="empty"><b>피킹할 전표를 먼저 골라 주세요</b><button class="btn primary" type="button" id="toBoard">전표 현황으로</button></div></div>`;
+    el.innerHTML = `<div class="section"><div class="empty"><b>피킹할 전표를 먼저 골라 주세요</b><span>2. 아웃바운드에서 전표를 열면 여기서 피킹이 시작돼요.</span><button class="btn primary" type="button" id="toBoard">아웃바운드로 가기</button></div></div>`;
     $('#toBoard').onclick = () => go('board'); return;
   }
   const prog = curProg(); ensureCur();
@@ -1443,10 +1457,684 @@ function mgrRow(r, mode){
       <button class="btn small" type="button" data-mv="${esc(r.code)}">옮기기</button></span>
   </div>`;
 }
+/** 바코드든 품목코드든 받아서 품목을 찾아 줘요 (여러 화면에서 같이 써요) */
+async function codeToItem(raw){
+  const bc = normBc(raw); if (!bc) return null;
+  const hit = store.codes[bc];
+  if (store.mode !== 'sheet') return hit ? { code: hit.c, name: hit.n || '' } : null;
+  try {
+    const r = await gsCall('stockFind', { q: hit ? hit.c : bc, limit: 5 });
+    const list = r.rows || [];
+    const row = (hit ? list.find(x => x.code === hit.c) : list.find(x => x.bc === bc)) || list[0];
+    if (row) return { code: row.code, name: row.name || '', loc: row.loc || '' };
+  } catch(e){}
+  return hit ? { code: hit.c, name: hit.n || '' } : null;
+}
+/* ================= 처음 화면 — 창고 일 순서 일곱 단계 =================
+   1 인바운드(받기) → 3 적재(올리기) → 5 피킹(꺼내기) → 6 패킹(싸기) → 출고
+   2 아웃바운드는 '무엇을 내보낼지' 전표를 받는 곳, 4 반품은 되돌아온 물건, 7 재고는 확인·조정이에요. */
+const STEPS = [
+  ['inb',   '1', '인바운드',  '입고 예정 올리고 · 도착 검수'],
+  ['board', '2', '아웃바운드', '출고 전표 올리고 · 피킹 리스트 만들기'],
+  ['put',   '3', '적재',      '받은 물건을 선반 자리에 올리기'],
+  ['ret',   '4', '반품',      '되돌아온 물건 · 불량 격리 · 공급처 반송'],
+  ['pick',  '5', '피킹',      '전표대로 물건 꺼내기'],
+  ['pack',  '6', '패킹',      '박스에 담고 송장 붙여 출고확정'],
+  ['reg',   '7', '재고',      '자리별 재고 · 재고실사 · 재고 조회']
+];
+const VIEWNM = {home:'이천창고 WMS', inb:'1. 인바운드', board:'2. 아웃바운드', put:'3. 적재',
+  ret:'4. 반품', pick:'5. 피킹', pack:'6. 패킹', reg:'7. 재고', codes:'재고 조회'};
+function stepCount(k){
+  const si = store.stockInfo || {};
+  if (k === 'inb')   { const n = si.inbOpenN || 0; return [n, '검수할 입고', n > 0]; }
+  if (k === 'board') { const n = Object.values(store.slips).filter(s => boardKey(s) === 'wait').length; return [n, '대기 전표', false]; }
+  if (k === 'put')   { const n = (si.inbWait || 0) + (si.retWait || 0); return [n, '올릴 물건', n > 0]; }
+  if (k === 'ret')   { const n = si.badQty || 0; return [n, '불량 보관', false]; }
+  if (k === 'pick')  { const n = Object.values(store.slips).filter(s => boardKey(s) === 'run').length; return [n, '피킹 중', n > 0]; }
+  if (k === 'pack')  { const n = si.packWait || 0; return [n, '쌀 물건', n > 0]; }
+  return [(si.binRows || 0), '자리별 줄', false];
+}
+function renderHome(){
+  const el = $('#view-home'), si = store.stockInfo || {};
+  const w = worker();
+  el.innerHTML = `
+    <div class="panel">
+      <h3>오늘 할 일</h3>
+      <p class="muted">${w ? `${esc(w)} 님, ` : ''}아래에서 지금 할 일을 고르세요. 숫자는 지금 남아 있는 거리예요.</p>
+    </div>
+    <div class="steps">
+      ${STEPS.map(([k, no, nm, sub]) => {
+        const [n, lbl, hot] = stepCount(k);
+        return `<button class="step ${hot ? 'hot' : ''}" type="button" data-step="${k}">
+          <span class="no">${no}</span>
+          <span class="nm">${nm}</span>
+          <span class="sub">${sub}</span>
+          <span class="cnt"><b>${n.toLocaleString()}</b> ${lbl}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="panel">
+      <h3>창고 안에 묶여 있는 것</h3>
+      <div class="tally">
+        <div><b>${si.inbWait || 0}</b>입고 대기</div>
+        <div><b>${si.retWait || 0}</b>반품 대기</div>
+        <div><b>${si.badQty || 0}</b>불량 보관</div>
+        <div><b>${si.cartons || 0}</b>담긴 박스</div>
+        <div><b>${si.packWait || 0}</b>출고 대기</div>
+      </div>
+      <p class="muted">선반에 꽂혀 있지 않은 물건이에요. 이 숫자가 0이면 모든 물건이 제자리에 있다는 뜻입니다.</p>
+    </div>`;
+  el.querySelectorAll('[data-step]').forEach(b => b.onclick = () => go(b.dataset.step));
+}
+
+/* ================= 1. 인바운드 ================= */
+async function inbLoad(){
+  if (!mgrOk()) return;
+  const r = await mgrCall('inbList', {}); if (!r) return;
+  ui.inbs = r.rows || []; render();
+}
+async function inbOpen(id){
+  if (!mgrOk()) return;
+  const r = await mgrCall('inbGet', {id}); if (!r || r.missing) { toast('그 입고 건을 찾지 못했어요'); return; }
+  ui.inb = r; render(); window.scrollTo({top:0});
+}
+function inbStat(b){
+  if (b.status === '적재완료') return ['done', '적재완료'];
+  if (b.status === '검수완료') return ['done', '검수완료 · 적재 대기'];
+  if (b.status === '검수중' || b.done) return ['run', '검수 중'];
+  return ['wait', '대기'];
+}
+function renderInb(){
+  const el = $('#view-inb'), b = ui.inb;
+  if (b) { renderInbOne(el, b); return; }
+  const rows = ui.inbs;
+  el.innerHTML = `
+    <div class="panel">
+      <h3>입고 예정 올리기</h3>
+      <p class="muted">이카운트 <b>발주서</b>나 <b>입고예정</b> 엑셀을 그대로 올리세요. 품목코드·품목명·수량 칸을 알아서 찾아요.</p>
+      <label class="btn primary file">${I.up}입고예정 엑셀 올리기<input type="file" id="fileInb" accept=".xlsx,.xls,.csv" hidden></label>
+      <button class="btn" type="button" id="inbNew">예정 없이 바로 입고 만들기</button>
+    </div>
+    ${rows == null ? '<p>불러오는 중…</p>' : rows.length ? `
+      <div class="sec-title"><div class="eyebrow">입고 ${rows.length}건</div>
+        <button class="btn small" type="button" id="inbReload" style="flex:none">새로고침</button></div>
+      <div class="list">${rows.map(x => {
+        const [k, lbl] = inbStat(x);
+        return `<button class="li" type="button" data-inb="${esc(x.id)}" style="grid-template-columns:1fr auto">
+          <span class="n"><b>${esc(x.no)}</b><small>${esc(x.vendor || '거래처 없음')}${x.eta ? ' · 예정 ' + esc(x.eta) : ''} · 품목 ${x.n}개</small></span>
+          <span class="q"><span class="chip ${k}">${lbl}</span>${x.gap ? `<span class="chip urgent">차이 ${x.gap}</span>` : ''}</span>
+        </button>`;
+      }).join('')}</div>` : '<div class="empty"><b>아직 올린 입고 예정이 없어요</b><span>위에서 엑셀을 올리거나, 예정 없이 바로 입고를 만들 수 있어요.</span></div>'}`;
+  const f = $('#fileInb'); if (f) f.onchange = onInbFile;
+  const rl = $('#inbReload'); if (rl) rl.onclick = inbLoad;
+  const nw = $('#inbNew'); if (nw) nw.onclick = inbNew;
+  el.querySelectorAll('[data-inb]').forEach(x => x.onclick = () => inbOpen(x.dataset.inb));
+}
+function renderInbOne(el, b){
+  const left = b.lines.filter(l => l.got === null && !l.status).length;
+  const gapRows = b.lines.filter(l => l.got !== null && l.got !== l.want);
+  el.innerHTML = `
+    <button class="btn small" type="button" id="inbBack" style="align-self:flex-start">← 입고 목록</button>
+    <div class="panel">
+      <h3>${esc(b.no)}</h3>
+      <p class="muted">${esc(b.vendor || '거래처 없음')}${b.eta ? ' · 예정일 ' + esc(b.eta) : ''} · 품목 ${b.n}개 · 검수 ${b.done}/${b.n}${b.gap ? ` · <b style="color:var(--bad)">차이 ${b.gap}건</b>` : ''}</p>
+      ${b.status === '적재완료' ? '<div class="banner ok">적재까지 끝났어요.</div>'
+        : b.status === '검수완료' ? '<div class="banner">검수가 끝났어요. <b>3. 적재</b>에서 선반에 올려 주세요.</div>' : ''}
+      <div class="row">
+        <button class="btn primary" type="button" id="inbScan">${I.scan}바코드로 검수</button>
+        ${b.status === '검수완료' || b.status === '적재완료'
+          ? '<button class="btn" type="button" id="inbUndo">입고 되돌리기</button>'
+          : `<button class="btn ${left ? '' : 'primary'}" type="button" id="inbDone">입고 확정하기</button>`}
+      </div>
+      ${left ? `<p class="muted">아직 ${left}줄을 안 봤어요. 확정하면 <b>검수한 수량만</b> 들어와요.</p>` : ''}
+    </div>
+    <div class="list">${b.lines.map(l => {
+      const seen = l.got !== null;
+      const bad = seen && l.got !== l.want;
+      return `<div class="li" style="grid-template-columns:1fr auto;${bad ? 'border-color:var(--bad)' : ''}">
+        <span class="n"><b>${esc(l.name || l.code)}</b><small class="mono">${esc(l.code)}${l.spec ? ' · ' + esc(l.spec) : ''}</small></span>
+        <span class="q" style="display:flex;gap:6px;align-items:center">
+          <span class="mono">${seen ? `<b>${l.got}</b>` : '—'} / ${l.want}</span>
+          <button class="btn small" type="button" data-inbline="${l.i}">${seen ? '고치기' : '세기'}</button>
+        </span></div>`;
+    }).join('')}</div>
+    ${gapRows.length ? `<div class="panel"><h3>예정과 다른 것 ${gapRows.length}건</h3>
+      <table class="tbl"><thead><tr><th>품목</th><th class="mono">예정</th><th class="mono">실제</th><th>사유</th></tr></thead>
+      <tbody>${gapRows.map(l => `<tr><td>${esc(l.name || l.code)}</td><td class="mono">${l.want}</td><td class="mono">${l.got}</td><td>${esc(l.why)}</td></tr>`).join('')}</tbody></table>
+      <p class="muted">차이는 그대로 기록돼요. 거래처에 알리고 이카운트 전표를 고칠 때 쓰세요.</p></div>` : ''}`;
+  $('#inbBack').onclick = () => { ui.inb = null; render(); };
+  $('#inbScan').onclick = () => openScanner('inbound');
+  const d = $('#inbDone'); if (d) d.onclick = inbFinish;
+  const u = $('#inbUndo'); if (u) u.onclick = inbUndo;
+  el.querySelectorAll('[data-inbline]').forEach(x => x.onclick = () => inbCount(Number(x.dataset.inbline)));
+}
+async function inbCount(i){
+  const b = ui.inb; if (!b) return;
+  const l = b.lines[i]; if (!l) return;
+  const v = await ask({ title: `${l.name || l.code}`,
+    body: `<span class="mono">${esc(l.code)}</span><br>예정 <b>${l.want}</b>개`,
+    html: `<label class="muted" for="inbQty" style="font-size:13px">실제로 온 수량</label>
+      <input class="search" id="inbQty" type="number" inputmode="numeric" min="0" value="${l.got === null ? l.want : l.got}">
+      <label class="muted" for="inbWhy" style="font-size:13px;margin-top:8px;display:block">예정과 다르면 사유</label>
+      <input class="search" id="inbWhy" value="${esc(l.why)}" placeholder="2개 모자람 · 파손 등">`,
+    actions: [{label:'저장', kind:'primary', value: box => ({
+        got: Math.max(0, Number(box.querySelector('#inbQty').value) || 0),
+        why: box.querySelector('#inbWhy').value.trim() }) }, {label:'취소', value:null}] });
+  if (!v) return;
+  const got = v.got, why = v.why;
+  const patch = { lines: { [String(i)]: { g: got, s: got === l.want ? '완료' : '차이', r: why,
+    v: 'manual', w: worker(), t: Date.now() } }, status: '검수중', worker: worker() };
+  if (!b.start) patch.start = Date.now();
+  const r = await mgrCall('inbProgress', { id: b.id, patch });
+  if (r) await inbOpen(b.id);
+}
+async function inbFinish(){
+  const b = ui.inb; if (!b) return;
+  const seen = b.lines.filter(l => l.got !== null);
+  const qty = seen.reduce((a, l) => a + l.got, 0);
+  if (!seen.length) { toast('아직 아무것도 세지 않았어요'); return; }
+  if (!await ask({ title: '입고를 확정할까요?',
+    body: `<b>${esc(b.no)}</b><br>검수한 ${seen.length}품목 · 모두 <b>${qty}개</b>가 들어와요.
+      <br>물건은 <b class="mono">입고:${esc(b.no)}</b> 에 모였다가 <b>3. 적재</b>에서 선반으로 올라가요.
+      <br><span class="muted">이카운트에는 올리지 않아요. 구매 전표를 만들 때 이미 재고가 늘었거든요.</span>`,
+    actions: [{label:'확정하기', value:true, kind:'primary'}, {label:'취소', value:false}] })) return;
+  const r = await mgrCall('inbFinish', { id: b.id, by: worker() });
+  if (!r) return;
+  if (r.already) toast('이미 확정된 입고예요');
+  else toast(`${r.n}개를 받았어요. 적재에서 선반에 올려 주세요.`);
+  await inbLoad(); await inbOpen(b.id);
+}
+async function inbUndo(){
+  const b = ui.inb; if (!b) return;
+  if (!await ask({ title: '입고를 되돌릴까요?',
+    body: '받은 것으로 기록한 수량을 다시 빼요.<br>이미 선반에 올린 것이 있으면 되돌릴 수 없어요.',
+    actions: [{label:'되돌리기', value:true, kind:'primary'}, {label:'그만두기', value:false}] })) return;
+  const r = await mgrCall('inbReset', { id: b.id, by: worker() });
+  if (!r) return;
+  if (r.blocked) { await ask({ title: '되돌릴 수 없어요', body: `이미 <b>${r.moved}개</b>를 선반에 올렸어요.<br>7. 재고의 위치 이동으로 자리를 고쳐 주세요.`, actions:[{label:'알겠어요', value:true, kind:'primary'}] }); return; }
+  toast('되돌렸어요'); await inbLoad(); await inbOpen(b.id);
+}
+async function inbNew(){
+  const v = await ask({ title: '입고를 바로 만들까요?',
+    body: '예정 자료 없이, 도착한 물건을 그 자리에서 세어 넣는 방식이에요.',
+    html: `<label class="muted" for="inbNo" style="font-size:13px">입고 번호</label>
+      <input class="search" id="inbNo" value="IN-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${String(Math.floor(Math.random()*90)+10)}">
+      <label class="muted" for="inbVen" style="font-size:13px;margin-top:8px;display:block">거래처</label>
+      <input class="search" id="inbVen" placeholder="한국도자기">`,
+    actions: [{label:'만들기', kind:'primary', value: box => {
+        const no = box.querySelector('#inbNo').value.trim();
+        if (!no) { toast('입고 번호를 적어 주세요'); return undefined; }
+        return { no, ven: box.querySelector('#inbVen').value.trim() };
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const no = v.no, ven = v.ven;
+  const r = await mgrCall('putInbs', { items: [{ inb: { id: 'IN' + Date.now(), no, vendor: ven,
+    uploadedAt: Date.now(), uploadedBy: worker(), lines: [] }, replace: false }] });
+  if (r) { toast('입고를 만들었어요. 바코드로 검수하면서 품목을 더하세요.'); await inbLoad(); }
+}
+
+/* 입고예정 엑셀 읽기 — 이카운트 발주서·입고예정 어느 쪽이든 머리글 이름으로 칸을 찾아요 */
+function parseInbs(wb, fileName){
+  const out = [], base = fileName.replace(/\.[^.]+$/, ''), txt = v => String(v ?? '').trim();
+  wb.SheetNames.forEach(sn => {
+    const rows = sheetRows(wb.Sheets[sn]);
+    const heads = []; rows.forEach((r, i) => { if (r.some(c => txt(c) === '품목코드')) heads.push(i); });
+    heads.forEach((hi, bi) => {
+      const end = bi + 1 < heads.length ? heads[bi + 1] : rows.length;
+      const head = rows[hi].map(txt);
+      const col = (...keys) => head.findIndex(h => keys.some(k => h === k || h.startsWith(k)));
+      const cCode = col('품목코드'), cName = col('품목명'), cSpec = col('규격');
+      const cQty = head.findIndex(h => /^(발주|예정|입고)?수량/.test(h) || h === '수량');
+      const cNo = head.findIndex(h => { const t = h.replace(/\s/g, ''); return t === '발주번호' || t === '전표번호' || /^일자-?No/i.test(t); });
+      const cVen = col('거래처', '구매처', '공급처'), cWh = col('입고창고', '창고');
+      const cEta = col('납기', '입고예정일', '예정일'), cLot = head.findIndex(h => h.includes('로트') || h.includes('시리얼'));
+      const cBc = head.findIndex(h => h.includes('바코드'));
+      const groups = new Map();
+      for (let i = hi + 1; i < end; i++){
+        const r = rows[i], code = txt(r[cCode]);
+        if (!code || txt(r[0]) === '합계') continue;
+        const qty = Number(txt(r[cQty]).replace(/,/g, '')) || 0;
+        if (qty <= 0) continue;
+        const key = cNo >= 0 ? txt(r[cNo]) || '(번호 없음)' : '';
+        if (!groups.has(key)) groups.set(key, { lines: [],
+          vendor: cVen >= 0 ? txt(r[cVen]) : '', wh: cWh >= 0 ? txt(r[cWh]) : '', eta: cEta >= 0 ? txt(r[cEta]) : '' });
+        groups.get(key).lines.push({ code, name: cName >= 0 ? txt(r[cName]) : '',
+          spec: cSpec >= 0 ? txt(r[cSpec]) : '', qty, lot: cLot >= 0 ? txt(r[cLot]) : '',
+          barcode: cBc >= 0 ? normBc(r[cBc]) : '' });
+      }
+      groups.forEach((g, key) => {
+        if (!g.lines.length) return;
+        const no = key || `${base}${wb.SheetNames.length > 1 ? '-' + sn : ''}${heads.length > 1 ? '-' + (bi + 1) : ''}`;
+        out.push({ id: safeId('IN_' + no), no, vendor: g.vendor, wh: g.wh, eta: g.eta,
+          uploadedAt: Date.now(), uploadedBy: worker() || '', lines: g.lines });
+      });
+    });
+  });
+  return out;
+}
+async function onInbFile(ev){
+  const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  if (!mgrOk()) return;
+  let wb; try { wb = await readFile(f); }
+  catch(e){ await ask({title:'파일을 읽지 못했어요', body:esc(String(e.message || e)), actions:[{label:'알겠어요', value:true, kind:'primary'}]}); return; }
+  const inbs = parseInbs(wb, f.name);
+  if (!inbs.length) { await ask({title:'입고 예정을 찾지 못했어요',
+    body:'엑셀에 <b>품목코드</b>와 <b>수량</b> 칸이 있어야 읽을 수 있어요. 이카운트 발주서·입고예정을 그대로 내려받아 올려 주세요.',
+    actions:[{label:'알겠어요', value:true, kind:'primary'}]}); return; }
+  const qty = inbs.reduce((a, b) => a + b.lines.reduce((x, l) => x + l.qty, 0), 0);
+  if (!await ask({ title: `입고 예정 ${inbs.length}건을 올릴까요?`,
+    body: `${inbs.map(b => `<b>${esc(b.no)}</b> ${esc(b.vendor || '')} · 품목 ${b.lines.length}`).slice(0, 6).join('<br>')}
+      ${inbs.length > 6 ? `<br>… 그 밖에 ${inbs.length - 6}건` : ''}<br>모두 <b>${qty}개</b> 예정`,
+    actions: [{label:'올리기', value:true, kind:'primary'}, {label:'취소', value:false}] })) return;
+  const r = await mgrCall('putInbs', { items: inbs.map(b => ({ inb: b, replace: true })) });
+  if (!r) return;
+  toast(`입고 예정 ${r.added}건을 올렸어요`);
+  await inbLoad();
+}
+/** 입고 검수 바코드 — 비출 때마다 1개씩. 예정에 없는 품목이면 새 줄로 더해요 */
+async function inbScan(code){
+  const b = ui.inb; if (!b) { scanStatus('bad', '먼저 입고 건을 여세요'); return; }
+  const item = await codeToItem(code);
+  if (!item) { scanStatus('bad', `모르는 바코드예요 — ${code}`); beep(false); return; }
+  let i = b.lines.findIndex(l => l.code === item.code);
+  if (i < 0) {
+    const add = b.lines.concat([{ code: item.code, name: item.name, want: 0, got: 0 }]);
+    const r0 = await mgrCall('putInbs', { items: [{ inb: { id: b.id, no: b.no, vendor: b.vendor, wh: b.wh,
+      eta: b.eta, uploadedAt: Date.now(), uploadedBy: worker(),
+      lines: add.map(l => ({ code: l.code, name: l.name, spec: l.spec, qty: l.want })) }, replace: true }] });
+    if (!r0) return;
+    await inbOpen(b.id);
+    i = (ui.inb.lines || []).findIndex(l => l.code === item.code);
+    if (i < 0) return;
+  }
+  const cur = ui.inb.lines[i], got = (cur.got || 0) + 1;
+  const r = await mgrCall('inbProgress', { id: ui.inb.id, patch: { lines: { [String(i)]:
+    { g: got, s: got === cur.want ? '완료' : '차이', v: 'scan', w: worker(), t: Date.now() } },
+    status: '검수중', worker: worker() } });
+  if (!r) return;
+  await inbOpen(ui.inb.id);
+  beep(true);
+  scanStatus('ok', `✓ ${item.name || item.code} — ${got}${cur.want ? ' / ' + cur.want : ''}개`);
+}
+
+/* ================= 3. 적재 (풋어웨이) ================= */
+async function putLoad(){
+  if (!mgrOk()) return;
+  const r = await mgrCall('holdStock', {}); if (!r) return;
+  ui.hold = r.rows || []; render();
+}
+function renderPut(){
+  const el = $('#view-put'), rows = ui.hold;
+  // 불량은 일부러 뺐어요. 팔 수 없는 물건이 실수로 선반에 올라가지 않도록, 4. 반품에서만 풀 수 있게 했습니다.
+  const want = (rows || []).filter(x => x.area === '입고:' || x.area === '반품:');
+  const byLoc = {};
+  want.forEach(x => { (byLoc[x.loc] = byLoc[x.loc] || []).push(x); });
+  const locs = Object.keys(byLoc).sort();
+  el.innerHTML = `
+    <div class="panel">
+      <h3>선반에 올릴 것</h3>
+      <p class="muted">받은 물건과 되돌아온 물건이 여기 모여요. 자리를 정해 올리면 그 자리 재고가 됩니다.</p>
+      <div class="row"><button class="btn small" type="button" id="putReload">새로고침</button>
+        <button class="btn small" type="button" id="putMove">자리끼리 옮기기</button>
+        <button class="btn small" type="button" id="putCarton">박스로 옮기기</button></div>
+    </div>
+    ${rows == null ? '<p>불러오는 중…</p>' : locs.length ? locs.map(loc => `
+      <div class="panel">
+        <div class="sec-title" style="margin:0"><div class="eyebrow">${esc(loc)} · 품목 ${byLoc[loc].length}</div>
+          <button class="btn small" type="button" data-putall="${esc(loc)}" style="flex:none">한 자리에 모두 올리기</button></div>
+        <div class="list">${byLoc[loc].map(x => `<div class="li" style="grid-template-columns:1fr auto">
+          <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small></span>
+          <span class="q" style="display:flex;gap:6px;align-items:center"><span class="mono">${x.qty}개</span>
+            <button class="btn small" type="button" data-put="${esc(x.code)}" data-from="${esc(x.loc)}" data-qty="${x.qty}" data-nm="${esc(x.name || '')}">자리 정하기</button></span>
+        </div>`).join('')}</div>
+      </div>`).join('') : '<div class="empty"><b>올릴 것이 없어요</b><span>받은 물건이 모두 선반에 올라가 있어요.</span></div>'}`;
+  $('#putReload').onclick = putLoad;
+  $('#putMove').onclick = () => { ui.mgr = 'move'; go('reg'); };
+  $('#putCarton').onclick = () => { ui.mgr = 'carton'; go('reg'); };
+  el.querySelectorAll('[data-put]').forEach(b => b.onclick = () => askPut(
+    [{ code: b.dataset.put, name: b.dataset.nm, from: b.dataset.from, qty: Number(b.dataset.qty) }]));
+  el.querySelectorAll('[data-putall]').forEach(b => b.onclick = () => askPut(byLoc[b.dataset.putall].map(x =>
+    ({ code: x.code, name: x.name, from: x.loc, qty: x.qty }))));
+}
+async function askPut(items){
+  const one = items.length === 1;
+  const v = await ask({ title: one ? '어느 자리에 올릴까요?' : `${items.length}품목을 한 자리에 올릴까요?`,
+    body: one ? `<b>${esc(items[0].name || items[0].code)}</b><br><span class="mono">${esc(items[0].code)}</span> · ${items[0].qty}개<br>지금 <b class="mono">${esc(items[0].from)}</b> 에 있어요`
+      : `<b class="mono">${esc(items[0].from)}</b> 에 있는 ${items.length}품목 · 모두 ${items.reduce((a, x) => a + x.qty, 0)}개`,
+    html: `<label class="muted" for="putTo" style="font-size:13px">올릴 자리</label>
+      <input class="search" id="putTo" placeholder="A-01-01" autocapitalize="characters">
+      ${one ? `<label class="muted" for="putQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+        <input class="search" id="putQty" type="number" inputmode="numeric" min="1" max="${items[0].qty}" value="${items[0].qty}">` : ''}`,
+    actions: [{label:'올리기', kind:'primary', value: box => {
+        const to = cleanLoc(box.querySelector('#putTo').value);
+        if (!to) { toast('올릴 자리를 적어 주세요'); return undefined; }
+        const qEl = box.querySelector('#putQty');
+        return { to, qty: qEl ? Math.max(1, Math.min(items[0].qty, Number(qEl.value) || items[0].qty)) : 0 };
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const to = v.to, qty = v.qty;
+  const rows = items.map(x => ({ code: x.code, name: x.name, from: x.from, to, qty: one ? qty : x.qty }));
+  const r = await mgrCall('putaway', { rows, by: worker() });
+  if (!r) return;
+  toast(r.n ? `${to} 에 올렸어요` : '올리지 못했어요');
+  await putLoad(); gsSoon(120);
+}
+
+/* ================= 4. 반품 ================= */
+async function retLoad(){
+  if (!mgrOk()) return;
+  const [a, b] = await Promise.all([mgrCall('retList', {limit: 100}), mgrCall('holdStock', {})]);
+  if (a) ui.rets = a.rows || [];
+  if (b) ui.hold = b.rows || [];
+  render();
+}
+function renderRet(){
+  const el = $('#view-ret'), rows = ui.rets, hold = ui.hold || [];
+  const waiting = hold.filter(x => x.area === '반품:');
+  const bad = hold.filter(x => x.area === '불량:');
+  el.innerHTML = `
+    <div class="panel">
+      <h3>반품 다루기</h3>
+      <div class="row">
+        <button class="btn primary" type="button" id="retNew">되돌아온 물건 받기</button>
+        <button class="btn" type="button" id="retBad">선반 물건 불량 빼기</button>
+        <button class="btn" type="button" id="retSend">공급처로 반송</button>
+        <button class="btn small" type="button" id="retReload">새로고침</button>
+      </div>
+      <p class="muted">이카운트에는 올리지 않아요. 반품 전표를 만들 때 이카운트 재고가 이미 바뀌니까요.</p>
+    </div>
+    ${waiting.length ? `<div class="panel"><h3>판정할 것 ${waiting.length}품목</h3>
+      <div class="list">${waiting.map(x => `<div class="li" style="grid-template-columns:1fr auto">
+        <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)} · ${esc(x.loc)}</small></span>
+        <span class="q" style="display:flex;gap:6px;align-items:center"><span class="mono">${x.qty}개</span>
+          <button class="btn small" type="button" data-judge="${esc(x.code)}" data-from="${esc(x.loc)}" data-qty="${x.qty}" data-nm="${esc(x.name || '')}">판정</button></span>
+      </div>`).join('')}</div>
+      <p class="muted">양품으로 두면 <b>3. 적재</b>에서 선반에 올리면 돼요. 불량은 따로 격리됩니다.</p></div>` : ''}
+    ${bad.length ? `<div class="panel"><h3>불량 보관 ${bad.length}품목</h3>
+      <div class="list">${bad.map(x => `<div class="li" style="grid-template-columns:1fr auto">
+        <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)} · ${esc(x.tag)}</small></span>
+        <span class="q" style="display:flex;gap:6px;align-items:center"><span class="mono">${x.qty}개</span>
+          <button class="btn small" type="button" data-unbad="${esc(x.code)}" data-from="${esc(x.loc)}" data-qty="${x.qty}" data-nm="${esc(x.name || '')}">선반 복귀</button></span>
+      </div>`).join('')}</div></div>` : ''}
+    ${rows == null ? '<p>불러오는 중…</p>' : rows.length ? `<div class="panel"><h3>반품 기록</h3>
+      <table class="tbl"><thead><tr><th>번호</th><th>구분</th><th>품목</th><th class="mono">수량</th><th>판정</th><th>시각</th></tr></thead>
+      <tbody>${rows.slice(0, 50).map(r => `<tr><td class="mono">${esc(r.no)}</td><td>${esc(r.kind)}</td>
+        <td>${esc(r.name || r.code)}</td><td class="mono">${r.qty}</td><td>${esc(r.judge || r.status)}</td><td class="mono">${esc(r.at)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty"><b>아직 반품 기록이 없어요</b></div>'}`;
+  $('#retReload').onclick = retLoad;
+  $('#retNew').onclick = retNew;
+  $('#retBad').onclick = () => retBadFlow(false);
+  $('#retSend').onclick = retSendFlow;
+  el.querySelectorAll('[data-judge]').forEach(b => b.onclick = () => askJudge(b.dataset));
+  el.querySelectorAll('[data-unbad]').forEach(b => b.onclick = () => retBadFlow(true, b.dataset));
+}
+async function retNew(){
+  const v = await ask({ title: '되돌아온 물건 받기',
+    body: '고객·거래처에서 돌아온 물건을 받아 둬요. 판정은 받고 나서 하면 돼요.',
+    html: `<label class="muted" for="rtNo" style="font-size:13px">반품 번호</label>
+      <input class="search" id="rtNo" value="RT-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${String(Math.floor(Math.random()*90)+10)}">
+      <label class="muted" for="rtFrom" style="font-size:13px;margin-top:8px;display:block">어디서 왔나요</label>
+      <input class="search" id="rtFrom" placeholder="거래처 이름">
+      <label class="muted" for="rtCode" style="font-size:13px;margin-top:8px;display:block">품목코드 또는 바코드</label>
+      <input class="search" id="rtCode" placeholder="품목코드">
+      <label class="muted" for="rtQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+      <input class="search" id="rtQty" type="number" inputmode="numeric" min="1" value="1">`,
+    actions: [{label:'받기', kind:'primary', value: box => {
+        const no = box.querySelector('#rtNo').value.trim(), code = box.querySelector('#rtCode').value.trim();
+        if (!no || !code) { toast('반품 번호와 품목코드를 적어 주세요'); return undefined; }
+        return { no, from: box.querySelector('#rtFrom').value.trim(), code,
+          qty: Math.max(1, Number(box.querySelector('#rtQty').value) || 1) };
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const no = v.no, from = v.from, code = v.code, qty = v.qty;
+  const item = await codeToItem(code) || { code, name: '' };
+  const r = await mgrCall('retTake', { id: 'RT' + Date.now(), info: { no, from },
+    rows: [{ code: item.code, name: item.name, qty }], by: worker() });
+  if (!r) return;
+  toast(`${qty}개를 받았어요. 아래에서 양품·불량을 판정해 주세요.`);
+  await retLoad(); gsSoon(120);
+}
+async function askJudge(d){
+  const qty = Number(d.qty);
+  const v = await ask({ title: '양품인가요, 불량인가요?',
+    body: `<b>${esc(d.nm || d.judge)}</b><br><span class="mono">${esc(d.judge)}</span> · ${qty}개`,
+    html: `<label class="muted" for="jQty" style="font-size:13px">불량 수량 (나머지는 양품)</label>
+      <input class="search" id="jQty" type="number" inputmode="numeric" min="0" max="${qty}" value="0">
+      <label class="muted" for="jWhy" style="font-size:13px;margin-top:8px;display:block">불량 사유</label>
+      <input class="search" id="jWhy" placeholder="파손 · 오염 · 유통기한">`,
+    actions: [{label:'저장', kind:'primary', value: box => ({
+        badQty: Math.max(0, Math.min(qty, Number(box.querySelector('#jQty').value) || 0)),
+        why: box.querySelector('#jWhy').value.trim() || '미분류' }) }, {label:'취소', value:null}] });
+  if (!v) return;
+  const badQty = v.badQty, why = v.why;
+  const rows = [];
+  if (badQty > 0) rows.push({ code: d.judge, name: d.nm, qty: badQty, judge: '불량', why, from: d.from });
+  if (badQty < qty) rows.push({ code: d.judge, name: d.nm, qty: qty - badQty, judge: '양품', from: d.from });
+  const id = (ui.rets || []).find(r => r.loc === d.from);
+  const r = await mgrCall('retJudge', { id: id ? id.id : d.from.replace('반품:', ''), rows, by: worker() });
+  if (!r) return;
+  toast(badQty ? `불량 ${badQty}개를 격리했어요` : '모두 양품으로 두었어요. 적재에서 올려 주세요.');
+  await retLoad(); gsSoon(120);
+}
+async function retBadFlow(back, d){
+  const v = await ask({ title: back ? '선반으로 되돌릴까요?' : '선반 물건을 불량으로 뺄까요?',
+    body: back ? `<b>${esc(d.nm)}</b> · <span class="mono">${esc(d.from)}</span> 에 ${d.qty}개`
+      : '선반에 있는 물건을 불량 구역으로 옮겨요. 그 자리 재고에서 빠집니다.',
+    html: back
+      ? `<label class="muted" for="bTo" style="font-size:13px">되돌릴 자리</label>
+         <input class="search" id="bTo" placeholder="A-01-01" autocapitalize="characters">
+         <label class="muted" for="bQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+         <input class="search" id="bQty" type="number" inputmode="numeric" min="1" max="${d.qty}" value="${d.qty}">`
+      : `<label class="muted" for="bCode" style="font-size:13px">품목코드 또는 바코드</label>
+         <input class="search" id="bCode" placeholder="품목코드">
+         <label class="muted" for="bFrom" style="font-size:13px;margin-top:8px;display:block">어느 자리에서</label>
+         <input class="search" id="bFrom" placeholder="A-01-01" autocapitalize="characters">
+         <label class="muted" for="bQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+         <input class="search" id="bQty" type="number" inputmode="numeric" min="1" value="1">
+         <label class="muted" for="bWhy" style="font-size:13px;margin-top:8px;display:block">사유</label>
+         <input class="search" id="bWhy" placeholder="파손 · 오염">`,
+    actions: [{label: back ? '되돌리기' : '빼기', kind:'primary', value: box => {
+        const qty = Math.max(1, Number(box.querySelector('#bQty').value) || 1);
+        if (back) {
+          const to = cleanLoc(box.querySelector('#bTo').value);
+          if (!to) { toast('되돌릴 자리를 적어 주세요'); return undefined; }
+          return { qty, to };
+        }
+        const code = box.querySelector('#bCode').value.trim();
+        const from = cleanLoc(box.querySelector('#bFrom').value);
+        if (!code || !from) { toast('품목코드와 자리를 적어 주세요'); return undefined; }
+        return { qty, code, from, why: box.querySelector('#bWhy').value.trim() };
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const qty = v.qty;
+  let row;
+  if (back) row = { code: d.unbad, name: d.nm, from: d.from, to: v.to, qty };
+  else {
+    const item = await codeToItem(v.code) || { code: v.code, name: '' };
+    row = { code: item.code, name: item.name, from: v.from, qty, why: v.why };
+  }
+  const r = await mgrCall('badMove', { rows: [row], by: worker(), back: !!back });
+  if (!r) return;
+  toast(r.n ? (back ? '선반으로 되돌렸어요' : '불량으로 뺐어요') : '그 자리에 그만큼 없어요');
+  await retLoad(); gsSoon(120);
+}
+async function retSendFlow(){
+  const v = await ask({ title: '공급처로 반송하기',
+    body: '선반이나 불량 구역에서 빼서 공급처로 돌려보내요.',
+    html: `<label class="muted" for="sNo" style="font-size:13px">반송 번호</label>
+      <input class="search" id="sNo" value="RS-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${String(Math.floor(Math.random()*90)+10)}">
+      <label class="muted" for="sTo" style="font-size:13px;margin-top:8px;display:block">어디로</label>
+      <input class="search" id="sTo" placeholder="공급처 이름">
+      <label class="muted" for="sCode" style="font-size:13px;margin-top:8px;display:block">품목코드 또는 바코드</label>
+      <input class="search" id="sCode" placeholder="품목코드">
+      <label class="muted" for="sFrom" style="font-size:13px;margin-top:8px;display:block">어느 자리에서 (불량은 불량:사유)</label>
+      <input class="search" id="sFrom" placeholder="A-01-01 또는 불량:파손">
+      <label class="muted" for="sQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+      <input class="search" id="sQty" type="number" inputmode="numeric" min="1" value="1">`,
+    actions: [{label:'반송하기', kind:'primary', value: box => {
+        const no = box.querySelector('#sNo').value.trim(), code = box.querySelector('#sCode').value.trim();
+        const from = box.querySelector('#sFrom').value.trim();
+        if (!no || !code || !from) { toast('번호 · 품목 · 자리를 적어 주세요'); return undefined; }
+        return { no, to: box.querySelector('#sTo').value.trim(), code, from,
+          qty: Math.max(1, Number(box.querySelector('#sQty').value) || 1) };
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const no = v.no, to = v.to, code = v.code, from = v.from, qty = v.qty;
+  const item = await codeToItem(code) || { code, name: '' };
+  const r = await mgrCall('retOut', { id: 'RS' + Date.now(), info: { no, to },
+    rows: [{ code: item.code, name: item.name, from: from.startsWith('불량:') ? from : from.toUpperCase(), qty }], by: worker() });
+  if (!r) return;
+  toast(r.n ? `${r.n}개를 반송 처리했어요` : '그 자리에 그만큼 없어요');
+  await retLoad(); gsSoon(120);
+}
+
+/* ================= 6. 패킹 ================= */
+async function packLoad(){
+  if (!mgrOk()) return;
+  const r = await mgrCall('packList', {}); if (!r) return;
+  ui.packs = r.rows || []; render();
+}
+async function packOpen(id){
+  if (!mgrOk()) return;
+  const r = await mgrCall('packGet', { id }); if (!r || r.missing) { toast('그 전표를 찾지 못했어요'); return; }
+  ui.pack = r; render(); window.scrollTo({top:0});
+}
+function renderPack(){
+  const el = $('#view-pack'), p = ui.pack;
+  if (p) { renderPackOne(el, p); return; }
+  const rows = ui.packs;
+  el.innerHTML = `
+    <div class="panel">
+      <h3>쌀 전표</h3>
+      <p class="muted">피킹을 마친 물건은 <b>출고 대기</b>에 모여 있어요. 박스에 나눠 담고 송장을 붙인 뒤 출고확정을 누르면 창고에서 나갑니다.</p>
+      <div class="row"><button class="btn small" type="button" id="packReload">새로고침</button>
+        <button class="btn small" type="button" id="packFind">송장번호로 찾기</button></div>
+    </div>
+    ${rows == null ? '<p>불러오는 중…</p>' : rows.length ? `<div class="list">${rows.map(x => `
+      <button class="li" type="button" data-pack="${esc(x.id)}" style="grid-template-columns:1fr auto">
+        <span class="n"><b>${esc(x.no)}</b><small>${esc(x.to || '')} · 박스 ${x.boxes}개${x.invoices ? ` · 송장 ${x.invoices}` : ''}</small></span>
+        <span class="q">${x.wait ? `<span class="chip run">쌀 것 ${x.wait}개</span>` : '<span class="chip done">다 쌈</span>'}${x.urgent ? '<span class="chip urgent">긴급</span>' : ''}</span>
+      </button>`).join('')}</div>` : '<div class="empty"><b>쌀 것이 없어요</b><span>피킹을 마친 전표가 여기에 나타나요.</span></div>'}`;
+  $('#packReload').onclick = packLoad;
+  $('#packFind').onclick = packFind;
+  el.querySelectorAll('[data-pack]').forEach(b => b.onclick = () => packOpen(b.dataset.pack));
+}
+function renderPackOne(el, p){
+  el.innerHTML = `
+    <button class="btn small" type="button" id="packBack" style="align-self:flex-start">← 쌀 전표 목록</button>
+    <div class="panel">
+      <h3>${esc(p.no)}</h3>
+      <p class="muted">${esc(p.to || '')} · 박스 ${p.boxes.length}개 · 아직 안 담은 것 <b>${p.leftQty}개</b></p>
+      ${p.shipped ? '<div class="banner ok">출고까지 끝났어요.</div>' : ''}
+      <div class="row">
+        <button class="btn" type="button" id="packNew">박스 만들기</button>
+        ${!p.shipped && p.boxes.length ? `<button class="btn ${p.leftQty ? '' : 'primary'}" type="button" id="packShip">출고 확정하기</button>` : ''}
+      </div>
+      ${p.leftQty ? `<p class="muted">아직 ${p.leftQty}개가 박스 밖에 있어요. 그래도 출고확정은 할 수 있어요.</p>` : ''}
+    </div>
+    ${p.left.length ? `<div class="panel"><h3>안 담은 것</h3>
+      <div class="list">${p.left.map(x => `<div class="li" style="grid-template-columns:1fr auto">
+        <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small></span>
+        <span class="q mono">${x.qty}개</span></div>`).join('')}</div></div>` : ''}
+    ${p.boxes.map(b => `<div class="panel">
+      <div class="sec-title" style="margin:0"><div class="eyebrow">${esc(b.box)} · ${b.qty}개 ${b.status === '출고완료' ? '· 출고완료' : ''}</div>
+        <span class="row" style="flex:none">
+          <button class="btn small" type="button" data-boxadd="${esc(b.box)}" ${p.shipped ? 'disabled' : ''}>담기</button>
+          <button class="btn small" type="button" data-boxinv="${esc(b.box)}">송장·무게</button>
+          ${b.qty ? '' : `<button class="btn small" type="button" data-boxdel="${esc(b.box)}">지우기</button>`}
+        </span></div>
+      ${b.invoice || b.carrier || b.weight ? `<p class="muted">${b.carrier ? esc(b.carrier) + ' · ' : ''}${b.invoice ? '송장 <b class="mono">' + esc(b.invoice) + '</b>' : '송장 없음(화물)'}${b.weight ? ' · ' + esc(b.weight) + 'kg' : ''}</p>` : '<p class="muted">송장·무게를 아직 안 적었어요.</p>'}
+      ${b.rows.length ? `<div class="list">${b.rows.map(x => `<div class="li" style="grid-template-columns:1fr auto">
+        <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small></span>
+        <span class="q mono">${x.qty}개</span></div>`).join('')}</div>` : '<p class="muted">빈 박스예요.</p>'}
+    </div>`).join('')}`;
+  $('#packBack').onclick = () => { ui.pack = null; render(); };
+  $('#packNew').onclick = async () => {
+    const r = await mgrCall('packNewBox', { id: p.slipId, by: worker() });
+    if (r) { toast(`${r.box} 박스를 만들었어요`); await packOpen(p.slipId); }
+  };
+  const sh = $('#packShip'); if (sh) sh.onclick = () => packShip(p);
+  el.querySelectorAll('[data-boxadd]').forEach(b => b.onclick = () => packPut(p, b.dataset.boxadd));
+  el.querySelectorAll('[data-boxinv]').forEach(b => b.onclick = () => packInv(p, b.dataset.boxinv));
+  el.querySelectorAll('[data-boxdel]').forEach(b => b.onclick = async () => {
+    const r = await mgrCall('packDropBox', { id: p.slipId, box: b.dataset.boxdel });
+    if (r) await packOpen(p.slipId);
+  });
+}
+async function packPut(p, box){
+  if (!p.left.length) { toast('더 담을 것이 없어요'); return; }
+  const v = await ask({ title: `${box} 에 담기`,
+    body: '안 담은 것 가운데 고르세요.',
+    html: `<select class="search" id="pkCode">${p.left.map(x => `<option value="${esc(x.code)}">${esc(x.name || x.code)} — ${x.qty}개 남음</option>`).join('')}</select>
+      <label class="muted" for="pkQty" style="font-size:13px;margin-top:8px;display:block">수량</label>
+      <input class="search" id="pkQty" type="number" inputmode="numeric" min="1" value="${p.left[0].qty}">
+      <p class="muted" style="margin-top:8px">남은 것을 한꺼번에 담으려면 아래 ‘남은 것 모두 담기’ 를 누르세요.</p>`,
+    actions: [{label:'담기', kind:'primary', value: box => ({ one: true,
+        code: box.querySelector('#pkCode').value,
+        qty: Math.max(1, Number(box.querySelector('#pkQty').value) || 1) }) },
+      {label:'남은 것 모두 담기', value: { all: true }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const rows = v.all ? p.left.map(x => ({ code: x.code, name: x.name, qty: x.qty }))
+    : [{ code: v.code, name: (p.left.find(x => x.code === v.code) || {}).name, qty: v.qty }];
+  const r = await mgrCall('packAdd', { id: p.slipId, box, rows, by: worker() });
+  if (!r) return;
+  toast(`${r.n}개를 담았어요`);
+  await packOpen(p.slipId);
+}
+async function packInv(p, box){
+  const b = p.boxes.find(x => x.box === box) || {};
+  const v = await ask({ title: `${box} 송장·무게`,
+    body: '택배면 송장번호를, 화물이면 비워 두고 무게만 적으면 돼요.',
+    html: `<label class="muted" for="ivNo" style="font-size:13px">송장번호</label>
+      <input class="search" id="ivNo" value="${esc(b.invoice || '')}" placeholder="택배가 아니면 비워 두세요">
+      <label class="muted" for="ivCar" style="font-size:13px;margin-top:8px;display:block">운송사</label>
+      <input class="search" id="ivCar" value="${esc(b.carrier || '')}" placeholder="CJ대한통운 · 화물">
+      <label class="muted" for="ivW" style="font-size:13px;margin-top:8px;display:block">무게(kg)</label>
+      <input class="search" id="ivW" value="${esc(b.weight || '')}" inputmode="decimal">`,
+    actions: [{label:'저장', kind:'primary', value: box2 => ({
+        invoice: box2.querySelector('#ivNo').value.trim(),
+        carrier: box2.querySelector('#ivCar').value.trim(),
+        weight: box2.querySelector('#ivW').value.trim() }) }, {label:'취소', value:null}] });
+  if (!v) return;
+  const r = await mgrCall('packBox', { id: p.slipId, box, patch: v, by: worker() });
+  if (r) { toast('적었어요'); await packOpen(p.slipId); }
+}
+async function packShip(p){
+  if (!await ask({ title: '출고를 확정할까요?',
+    body: `<b>${esc(p.no)}</b> · 박스 ${p.boxes.length}개<br>출고 대기에 있던 <b>${p.staged}개</b>가 창고에서 나갑니다.
+      ${p.leftQty ? `<br><b style="color:var(--bad)">아직 박스에 안 담은 것 ${p.leftQty}개</b>도 함께 나가요.` : ''}
+      <br><span class="muted">이카운트에는 올리지 않아요. 출고 전표를 만들 때 이미 재고가 빠졌거든요.</span>`,
+    actions: [{label:'출고확정', value:true, kind:'primary'}, {label:'취소', value:false}] })) return;
+  const r = await mgrCall('shipConfirm', { id: p.slipId, by: worker() });
+  if (!r) return;
+  if (r.empty) toast('이미 나간 전표예요');
+  else toast(`${r.n}개를 내보냈어요`);
+  await packLoad(); await packOpen(p.slipId); gsSoon(120);
+}
+async function packFind(){
+  const v = await ask({ title: '송장번호로 찾기',
+    body: '송장번호 · 박스번호 · 전표번호 가운데 아무거나 넣으세요.',
+    html: '<input class="search" id="ivQ" placeholder="1234567890">',
+    actions: [{label:'찾기', kind:'primary', value: box => {
+        const q = box.querySelector('#ivQ').value.trim();
+        if (!q) { toast('번호를 넣어 주세요'); return undefined; }
+        return q;
+      }}, {label:'취소', value:null}] });
+  if (!v) return;
+  const q = v;
+  const r = await mgrCall('invoiceFind', { q }); if (!r) return;
+  await ask({ title: `찾은 박스 ${r.rows.length}개`,
+    body: r.rows.length ? r.rows.map(b => `<b class="mono">${esc(b.box)}</b> · ${esc(b.no)} · ${esc(b.carrier || '')} ${b.invoice ? '송장 ' + esc(b.invoice) : ''}
+      ${b.shipped ? '· 출고 ' + esc(b.shipped) : '· 아직 안 나감'}<br><span class="muted">${(b.rows || []).map(x => esc(x.name || x.code) + ' ' + x.qty).join(' · ') || '빈 박스'}</span>`).join('<hr style="border:0;border-top:1px solid var(--line);margin:8px 0">')
+      : '그런 번호를 찾지 못했어요.',
+    actions: [{label:'닫기', value:true, kind:'primary'}] });
+}
+
 function renderMgr(){
   const el = $('#view-reg'); const si = store.stockInfo || {};
   const mode = ui.mgr || 'bins';
-  const seg = [['bins', '로케이션별 재고'], ['move', '위치 이동'], ['carton', '카톤 이동'], ['count', '재고실사']];
+  const seg = [['bins', '로케이션별 재고'], ['find', '재고 조회'], ['hold', '보류 재고'], ['move', '위치 이동'], ['carton', '카톤 이동'], ['count', '재고실사']];
   let body = '';
   if (mode === 'bins') {
     const bins = ui.mgrBins, items = ui.mgrItems, item = ui.mgrItem;
@@ -1466,6 +2154,24 @@ function renderMgr(){
         <button class="btn" type="button" data-mv="${esc(item.code)}">이 품목 옮기기</button>` : ''}
       ${ui.mgrFound && !item ? `<div class="eyebrow">품목 ${ui.mgrFound.length}</div><div class="list">${ui.mgrFound.map(x => `<button class="li" type="button" data-item="${esc(x.code)}" style="grid-template-columns:1fr auto"><span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small></span><span class="q mono">${esc(x.loc || '자리 없음')}</span></button>`).join('')}</div>` : ''}
     </div>`;
+  } else if (mode === 'hold') {
+    const rows = ui.hold;
+    const G = [['입고:', '입고 대기', '검수는 끝났고 선반에 안 올라간 것'], ['반품:', '반품 대기', '되돌아와 판정·적재를 기다리는 것'],
+               ['불량:', '불량 보관', '팔 수 없어 격리한 것'], ['박스:', '박스에 담긴 것', '창고 안에서 옮기는 중'],
+               ['출고:', '출고 대기', '피킹은 끝났고 아직 안 실은 것']];
+    body = `<div class="panel">
+      <h3>선반에 없는 물건</h3>
+      <p class="muted">이카운트 재고와 자리 합계가 다를 때, 차이는 대개 여기 있어요. 출고 대기는 이카운트가 전표를 만들 때 이미 뺀 것이라 빼고 셉니다.</p>
+      <button class="btn small" type="button" id="holdReload">새로고침</button>
+    </div>
+    ${rows == null ? '<p>불러오는 중…</p>' : G.map(([pre, nm, sub]) => {
+      const g = rows.filter(x => x.area === pre);
+      if (!g.length) return '';
+      return `<div class="panel"><h3>${nm} <span class="muted" style="font-weight:400;font-size:13px">· ${sub}</span></h3>
+        <div class="list">${g.map(x => `<div class="li" style="grid-template-columns:1fr auto">
+          <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)} · ${esc(x.loc)}</small></span>
+          <span class="q mono">${x.qty}개</span></div>`).join('')}</div></div>`;
+    }).join('') || '<div class="empty"><b>모든 물건이 제자리에 있어요</b><span>선반 밖에 묶여 있는 물건이 없어요.</span></div>'}`;
   } else if (mode === 'move') {
     body = `<div class="panel">
       <h3>물건을 다른 자리로</h3>
@@ -1576,7 +2282,10 @@ function renderMgr(){
     q.onfocus = () => ui.mgrFocus = true; q.onblur = () => ui.mgrFocus = false;
   }
   el.querySelectorAll('[data-mgr]').forEach(b => b.onclick = () => {
-    ui.mgr = b.dataset.mgr; ui.mgrBins = null; ui.mgrItems = null; ui.mgrItem = null; ui.mgrFound = null; ui.mgrQ = ''; render(); });
+    if (b.dataset.mgr === 'find') { go('codes'); return; }           // 재고 조회는 따로 있는 화면이에요
+    ui.mgr = b.dataset.mgr; ui.mgrBins = null; ui.mgrItems = null; ui.mgrItem = null; ui.mgrFound = null; ui.mgrQ = '';
+    if (b.dataset.mgr === 'hold') { ui.hold = null; render(); putLoad(); return; }
+    render(); });
   el.querySelectorAll('[data-bin]').forEach(b => b.onclick = async () => {
     const r = await mgrCall('binItems', {loc: b.dataset.bin}); if (!r) return;
     ui.mgrItems = {loc: b.dataset.bin, rows: r.rows || []}; ui.mgrItem = null; ui.mgrFound = null; render(); });
@@ -1593,6 +2302,7 @@ function renderMgr(){
   el.querySelectorAll('[data-cq]').forEach(inp => { inp.onchange = () => countSet(inp.dataset.cq, inp.value); });
   const mc = $('#mgrCount'); if (mc) mc.onclick = () => countStart(ui.mgrItems.loc);
   const mb = $('#mgrBack'); if (mb) mb.onclick = () => { ui.mgrItems = null; ui.mgrItem = null; render(); window.scrollTo({top:0}); };
+  const hr = $('#holdReload'); if (hr) hr.onclick = putLoad;
   const sb = $('#mgrScanBtn'); if (sb) sb.onclick = () => openScanner('mgr');
   const cs = $('#carScanBtn'); if (cs) cs.onclick = () => openScanner('carton');
   const cdr = $('#carDropBtn'); if (cdr) cdr.onclick = carDrop;
@@ -1659,6 +2369,7 @@ function renderCodes(){
     s.lines.forEach(l => { if (!map[l.code] && !seen.has(l.code)) { seen.add(l.code); missing.push(l); } }); });
   const rows = ui.stockRows;
   el.innerHTML = `
+    <button class="btn small" type="button" id="codesBack" style="align-self:flex-start">← 7. 재고</button>
     <div class="board-head">
       <div><div class="eyebrow">창고 재고</div><h2>재고 조회</h2></div>
       <div class="tally">
@@ -1709,6 +2420,7 @@ function renderCodes(){
   $('#scanLookup').onclick = () => openScanner('lookup');
   const q = $('#stockQ');
   /* 타이핑 중에는 찾지 않아요 — 다 적고 엔터나 '찾기'를 눌렀을 때만 */
+  $('#codesBack').onclick = () => go('reg');
   $('#stockForm').onsubmit = ev => { ev.preventDefault(); ui.stockQ = q.value; stockSearch(ui.stockQ); };
   q.oninput = () => { ui.stockQ = q.value; if (!q.value.trim() && ui.stockRows) { ui.stockRows = null; ui.stockErr = ''; render(); } };
   if (ui.stockFocus) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch(e){} }
@@ -1916,7 +2628,7 @@ function scanStatus(kind, text){ const s = $('#scanStatus'); if (!s) return; s.c
   const a = $('#aim'); if (a && kind) { a.classList.remove('hit', 'miss'); a.classList.add(kind === 'ok' ? 'hit' : 'miss'); setTimeout(() => a.classList.remove('hit', 'miss'), 600); } }
 function renderMini(){
   const box = $('#scanMini');
-  if (scanner.mode === 'lookup' || scanner.mode === 'mgr' || scanner.mode === 'carton') { if (!box.dataset.filled) box.innerHTML = `<span class="n">${scanner.mode === 'carton' ? (ui.car ? `박스 ${esc(ui.car.id)} · 담을 물건을 비추세요` : '박스 바코드를 비추면 열려요') : scanner.mode === 'mgr' ? (ui.cnt ? '비추면 그 품목을 1개씩 세요' : '비추면 그 물건을 옮길 수 있어요') : '바코드를 비추면 재고를 보여드려요'}</span>`; return; }
+  if (scanner.mode === 'lookup' || scanner.mode === 'mgr' || scanner.mode === 'carton' || scanner.mode === 'inbound') { if (!box.dataset.filled) box.innerHTML = `<span class="n">${scanner.mode === 'carton' ? (ui.car ? `박스 ${esc(ui.car.id)} · 담을 물건을 비추세요` : '박스 바코드를 비추면 열려요') : scanner.mode === 'inbound' ? '도착한 물건을 비추면 1개씩 세어져요' : scanner.mode === 'mgr' ? (ui.cnt ? '비추면 그 품목을 1개씩 세요' : '비추면 그 물건을 옮길 수 있어요') : '바코드를 비추면 재고를 보여드려요'}</span>`; return; }
   const slip = curSlip(); if (!slip || ui.cur < 0) { box.innerHTML = '<span class="n">남은 품목이 없어요</span>'; return; }
   const i = info(slip, curProg(), ui.cur);
   box.innerHTML = `<span class="l ${mainLoc(i.l) ? '' : 'none'}">${esc(mainLoc(i.l) || '위치 없음')}</span><span class="n">${esc(i.l.name)}<small>${esc(i.l.code)}</small></span><span class="q">${i.p}/${i.l.qty}</span>`;
@@ -1951,7 +2663,7 @@ function gotCode(code){
   scanner.lastCode = code; scanner.lastSeen = now;
   if (scanner.paused || !$('#sheet').hidden) return;
   scanner.paused = true; scanner.lastAccept = now;
-  (scanner.mode === 'lookup' ? lookupScan(code) : scanner.mode === 'carton' ? carScan(code) : scanner.mode === 'mgr' ? mgrScan(code) : onScan(code)).finally(() => {
+  (scanner.mode === 'lookup' ? lookupScan(code) : scanner.mode === 'carton' ? carScan(code) : scanner.mode === 'inbound' ? inbScan(code) : scanner.mode === 'mgr' ? mgrScan(code) : onScan(code)).finally(() => {
     const wait = Math.max(0, SCAN_GAP_MS - (Date.now() - scanner.lastAccept));
     setTimeout(() => { scanner.paused = !$('#sheet').hidden; }, wait);
   });
@@ -2003,13 +2715,13 @@ async function lookupScan(bc){
   } catch(e){ beep(false); scanStatus('bad', '✕ 재고를 불러오지 못했어요'); }
 }
 async function openScanner(mode){
-  scanner.mode = (mode === 'lookup' || mode === 'mgr' || mode === 'carton') ? mode : 'pick';
+  scanner.mode = (mode === 'lookup' || mode === 'mgr' || mode === 'carton' || mode === 'inbound') ? mode : 'pick';
   if (scanner.mode === 'pick' && (!curSlip() || ui.cur < 0)) return;
   clearTimeout(scanner.idleT);
   $('#scanner').hidden = false; $('#photoBox').hidden = true; $('#aim').hidden = false;
   delete $('#scanMini').dataset.filled; renderMini();
-  $('#scanHint').textContent = scanner.mode === 'pick' ? '바코드를 노란 선에 비추세요' : scanner.mode === 'carton' ? (ui.car ? '담을 물건을 비추세요' : '박스 바코드를 비추세요') : scanner.mode === 'mgr' ? (ui.cnt ? '세는 물건을 비추세요' : '옮길 물건을 비추세요') : '재고를 볼 바코드를 비추세요';
-  scanStatus('', scanner.mode === 'pick' ? '비추기만 하면 자동으로 담겨요. 찍는 버튼은 없어요.' : scanner.mode === 'carton' ? (ui.car ? '비추면 그 물건을 박스에 담아요.' : '박스에 붙은 바코드·QR을 비추면 박스가 열려요.') : scanner.mode === 'mgr' ? (ui.cnt ? '비출 때마다 그 품목이 1개씩 올라가요.' : '비추면 그 물건을 옮길 수 있어요.') : '비추면 재고 수량과 위치를 보여드려요.');
+  $('#scanHint').textContent = scanner.mode === 'pick' ? '바코드를 노란 선에 비추세요' : scanner.mode === 'carton' ? (ui.car ? '담을 물건을 비추세요' : '박스 바코드를 비추세요') : scanner.mode === 'inbound' ? '도착한 물건을 비추세요' : scanner.mode === 'mgr' ? (ui.cnt ? '세는 물건을 비추세요' : '옮길 물건을 비추세요') : '재고를 볼 바코드를 비추세요';
+  scanStatus('', scanner.mode === 'pick' ? '비추기만 하면 자동으로 담겨요. 찍는 버튼은 없어요.' : scanner.mode === 'carton' ? (ui.car ? '비추면 그 물건을 박스에 담아요.' : '박스에 붙은 바코드·QR을 비추면 박스가 열려요.') : scanner.mode === 'inbound' ? '비출 때마다 그 품목이 1개씩 올라가요. 예정에 없으면 새 줄로 더해요.' : scanner.mode === 'mgr' ? (ui.cnt ? '비출 때마다 그 품목이 1개씩 올라가요.' : '비추면 그 물건을 옮길 수 있어요.') : '비추면 재고 수량과 위치를 보여드려요.');
   const v = $('#video');
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no-media');
@@ -2061,6 +2773,7 @@ async function decodePhoto(file){
     if (!code) { beep(false); scanStatus('bad', '✕ 바코드를 찾지 못했어요. 더 가까이, 흔들리지 않게 다시 찍어 주세요.'); return; }
     if (scanner.mode === 'lookup') { await lookupScan(code); return; }
     if (scanner.mode === 'carton') { await carScan(code); return; }
+    if (scanner.mode === 'inbound') { await inbScan(code); return; }
     if (scanner.mode === 'mgr') { await mgrScan(code); return; }
     await onScan(code); renderMini();
   } catch(e){ scanStatus('bad', '✕ 사진을 읽지 못했어요. 다시 찍어 주세요.'); }
@@ -2532,6 +3245,7 @@ function exportCodes(){
 
 /* ---------- wiring ---------- */
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => go(t.dataset.tab));
+$('#homeBtn').onclick = () => go(ui.view === 'home' ? 'home' : 'home');
 $('#syncPill').onclick = async () => {
   if (inAppsScript()) { toast('구글 시트에 바로 연결돼 있어요'); return; }
   const v = await ask({title:'구글 시트 연결', body: API_URL ? '지금 연결된 주소예요. 바꾸려면 새 웹 앱 주소를 붙여넣어 주세요.' : '구글 시트 웹 앱 주소를 붙여넣으면 이 폰이 연결돼요. 작업자용 링크로 열었다면 자동으로 들어가 있어요.',
