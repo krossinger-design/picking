@@ -307,6 +307,9 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 .scanner .mini .n{font-size:14px;line-height:1.3;min-width:0}
 .scanner .mini .n small{display:block;font-family:var(--f-mono);color:#9AA19A;font-size:12px}
 .scanner .mini .q{font-family:var(--f-mono);font-size:22px}
+.scanner .manual input{background:#1A1D20;border-color:#2F3438;color:#E8EBE6;min-height:44px}
+.scanner .manual input::placeholder{color:#7D847C}
+.scanner .manual .btn{background:#2F3438;border-color:#3A4044;color:#E8EBE6;min-height:44px}
 .scanner .status{min-height:48px;border-radius:12px;padding:10px 14px;font-size:14.5px;background:rgba(255,255,255,.1)}
 .scanner .status.ok{background:#15301F;color:#8FE0AE}
 .scanner .status.bad{background:#3B1B18;color:#FFB0A5}
@@ -318,6 +321,40 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:720px){ .pick-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start} }
+/* 카톤(박스) — 피킹 화면처럼 */
+.carbox{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.carhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.plate-id{background:var(--plate);color:var(--plate-ink);font-family:var(--f-plate);font-weight:700;
+  font-size:clamp(28px,8vw,42px);line-height:1;padding:8px 14px;border-radius:10px;overflow-wrap:anywhere}
+.carsum{text-align:right;line-height:1.1}
+.carsum b{font-family:var(--f-mono);font-size:30px}
+.carsum small{display:block;font-size:12.5px;color:var(--ink-3)}
+.carq{display:flex;gap:8px;align-items:center}
+.carq b{min-width:30px;text-align:center;font-size:18px}
+.rnd{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);
+  font-size:20px;line-height:1;color:var(--ink);display:flex;align-items:center;justify-content:center}
+.rnd:active{background:var(--plate);color:var(--plate-ink)}
+.carli.hit{border-color:var(--plate);box-shadow:0 0 0 2px rgba(244,194,27,.3)}
+.boxcard{gap:10px}
+.boxmain{display:flex;flex-direction:column;gap:8px;width:100%;border:0;background:none;padding:0;text-align:left}
+.boxtop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.plate-id.sm{font-size:clamp(22px,6vw,30px);padding:5px 10px;border-radius:8px}
+.boxwho{font-size:12.5px;color:var(--ink-3);font-family:var(--f-mono)}
+.boxrows{display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--line);padding-top:8px}
+.boxrow{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.boxrow span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.boxrow.muted{color:var(--ink-3);font-size:12.5px}
+/* 스캔 화면에서 박스 안을 보면서 담기 */
+.scanner .mini.stack{display:block;max-height:34vh;overflow:auto}
+.scanner .mini.stack .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #2F3438}
+.scanner .mini.stack .top b{font-family:var(--f-mono);font-size:17px;color:#F4C21B}
+.scanner .mini.stack .top span{font-family:var(--f-mono);font-size:15px;color:#E8EBE6}
+.scanner .mini.stack .r{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;font-size:13.5px}
+.scanner .mini.stack .r small{display:block;font-family:var(--f-mono);color:#9AA19A;font-size:11.5px}
+.scanner .mini.stack .r.hit{color:#8FE0AE}
+.scanner .mini.stack .r b{font-family:var(--f-mono);font-size:16px;white-space:nowrap}
+.scanner .mini.stack .none{color:#9AA19A;font-size:13.5px}
 /* 처음 화면 — 일곱 단계 큰 단추 */
 .steps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media (min-width:680px){ .steps{grid-template-columns:repeat(3,1fr)} }
@@ -378,6 +415,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
   </div>
   <div class="bottom">
     <div id="scanStatus" class="status">상품 바코드를 비추면 자동으로 담겨요.</div>
+    <form class="manual" id="scanManual" autocomplete="off"><input id="scanBc" inputmode="numeric" placeholder="안 읽히면 바코드 번호를 직접" aria-label="바코드 번호 직접 입력"><button class="btn" type="submit">확인</button></form>
     <div id="scanMini" class="mini"></div>
   </div>
 </div>
@@ -790,7 +828,7 @@ function slipState(slip, prog){
 /* ---------- ui state ---------- */
 const ui = { folder: LS.get('opk.folder', ''), filter: LS.get('opk.filter', 'all'), view: LS.get('opk.view', 'home'), slipId: LS.get('opk.slip', ''), cur: -1, skipped: new Set(), last: null, stockQ: '', stockRows: null, stockBusy: false, stockErr: '', stockT: 0, stockFocus: false,
   binsOf: {}, binsSlip: '', car: null, carQ: '', carLog: null, carList: null, mgr: 'bins', mgrQ: '', mgrBins: null, mgrItems: null, mgrItem: null, mgrFound: null, mgrBusy: false, mgrFocus: false, mgrLog: null, cnt: null,
-  inbs: null, inb: null, hold: null, rets: null, packs: null, pack: null };
+  inbs: null, inb: null, hold: null, rets: null, packs: null, pack: null, carLast: '' };
 function go(view){
   ui.view = view; LS.set('opk.view', view);
   if (view === 'inb') { ui.inb = null; ui.inbs = null; }
@@ -1367,13 +1405,30 @@ function parseLocSheet(wb){
 }
 /* ---- 카톤(박스)으로 옮기기 ----
    박스는 올리는 그릇이에요. 담으면 그 자리에서 빠지고(이동 중), 내려놓으면 그 자리 재고가 돼요. */
+async function carListLoad(){
+  if (!mgrOk()) return;
+  const r = await mgrCall('cartonList', {});
+  ui.carList = r ? (r.cartons || []) : [];
+  render();
+}
+async function carNew(){
+  const v = await ask({ title: '박스 번호를 적어 주세요',
+    body: '박스에 붙은 번호를 그대로 적으면 돼요. 바코드가 있으면 비추는 게 더 빨라요.',
+    html: '<input class="search" id="cnId" placeholder="BOX-1234" autocapitalize="characters">',
+    actions: [{label:'열기', kind:'primary', value: box => {
+        const t = box.querySelector('#cnId').value.trim().toUpperCase();
+        if (!t) { toast('번호를 적어 주세요'); return undefined; }
+        return t;
+      }}, {label:'취소', value:null}] });
+  if (v) await carOpen(v);
+}
 async function carOpen(id){
   id = String(id || '').trim(); if (!id) return;
   if (!mgrOk()) return;
   const r = await mgrCall('cartonGet', {id});
   if (!r) return;
   ui.car = {id, rows: r.rows || [], qty: r.qty || 0};
-  ui.carLog = null; render();
+  ui.carLog = null; ui.carLast = ''; ui.mgrQ = ''; ui.mgrFound = null; ui.carList = null; render();
   toast(r.rows && r.rows.length ? `박스 ${id} · ${r.rows.length}품목 ${r.qty}개가 들어 있어요` : `빈 박스 ${id} 를 열었어요`);
 }
 async function carAdd(item){
@@ -1394,13 +1449,10 @@ async function carAdd(item){
         return {from: f ? f.value : '', qty: q};
       }}, {label:'취소', value:null}]});
   if (!v) return false;
-  const r = await mgrCall('cartonAdd', {id: c.id, by: worker(), rows:[{code:item.code, name:item.name || '', from:v.from, qty:v.qty}]});
+  const r = await carPut(item, v.qty, v.from);
   if (!r) return false;
-  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
-  ui.car = {id: c.id, rows: (r.carton && r.carton.rows) || [], qty: (r.carton && r.carton.qty) || 0};
-  ui.carLog = null; render();
-  if (r.short && r.short.length) ask({title:'자리에 있는 만큼만 담았어요',
-    body:`${esc(r.short[0].name || r.short[0].code)} — 담으려던 ${r.short[0].want}개 중 자리에 ${r.short[0].have}개만 있었어요. 숫자가 어긋나 있다면 그 자리를 한 번 세어 보세요.`});
+  if (r.short) ask({title:'자리에 있는 만큼만 담았어요',
+    body:`${esc(item.name || item.code)} — 자리에 있는 만큼만 담았어요. 숫자가 어긋나 있다면 그 자리를 한 번 세어 보세요.`});
   else toast(`${item.name || item.code} ${v.qty}개 담았어요`);
   return true;
 }
@@ -1415,7 +1467,7 @@ async function carDrop(){
   const r = await mgrCall('cartonDrop', {id: c.id, to, by: worker()});
   if (!r) return;
   afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
-  ui.car = null; ui.carLog = null; ui.carList = null; render();
+  ui.car = null; ui.carLog = null; ui.carList = null; render(); carListLoad();
   ask({title:`${to} 에 내려놨어요`, body:`박스 <b class="mono">${esc(c.id)}</b> 의 ${r.lines}품목 ${r.n}개가 <b class="mono">${esc(to)}</b> 재고가 됐어요.<br>이 이동은 ‘이카운트로 내보내기 → 이동 기록’에 들어가요.`});
 }
 async function carUndo(){
@@ -1424,28 +1476,69 @@ async function carUndo(){
     actions:[{label:'되돌리기', value:true, kind:'primary'}, {label:'취소', value:false}]})) return;
   const r = await mgrCall('cartonUndo', {id: c.id, by: worker()}); if (!r) return;
   afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
-  ui.car = null; ui.carLog = null; ui.carList = null; render();
+  ui.car = null; ui.carLog = null; ui.carList = null; render(); carListLoad();
   toast(`${r.n}개를 원래 자리로 되돌렸어요`);
 }
 /* 박스 화면에서 바코드를 비췄을 때 — 박스가 안 열려 있으면 박스 번호, 열려 있으면 담을 물건 */
 async function carScan(bc){
   const box = $('#scanMini');
-  if (!ui.car) { box.dataset.filled = '1';
-    box.innerHTML = `<span class="l">박스</span><span class="n">${esc(bc)}</span><span class="q">열기</span>`;
-    beep(true); await carOpen(bc); scanStatus('ok', `✓ 박스 ${bc} · 이제 담을 물건을 비추세요`); return; }
-  const hit = store.codes[bc];
-  let row = null;
-  try { const r = await gsCall('stockFind', {q: hit ? hit.c : bc, limit:5});
-        const list = r.rows || [];
-        row = (hit ? list.find(x => x.code === hit.c) : list.find(x => x.bc === bc)) || list[0] || null; }
-  catch(e){ beep(false); scanStatus('bad', '✕ 품목을 불러오지 못했어요'); return; }
-  if (!row && hit) row = {code: hit.c, name: hit.n || ''};
-  if (!row) {   // 품목이 아니면 다른 박스로 본다
-    beep(true); await carOpen(bc); scanStatus('ok', `✓ 박스 ${bc} 로 바꿨어요`); return; }
-  beep(true); box.dataset.filled = '1';
-  box.innerHTML = `<span class="l">담기</span><span class="n">${esc(row.name || row.code)}<small>${esc(row.code)}</small></span><span class="q">${esc(row.qty)}</span>`;
-  const okAdd = await carAdd({code: row.code, name: row.name});
-  scanStatus(okAdd ? 'ok' : '', okAdd ? `✓ ${row.name || row.code} 담았어요 · 박스 ${ui.car ? ui.car.qty : 0}개` : '다음 물건을 비추세요.');
+  if (!ui.car) {
+    beep(true); await carOpen(bc); renderMini();
+    scanStatus('ok', `✓ 박스 ${bc} · 이제 담을 물건을 비추세요`); return;
+  }
+  const item = await codeToItem(bc);
+  if (!item) {   // 품목이 아니면 다른 박스로 본다
+    beep(true); await carOpen(bc); renderMini();
+    scanStatus('ok', `✓ 박스 ${bc} 로 바꿨어요`); return;
+  }
+  const r = await carPut(item, 1);           // 비추면 바로 1개
+  if (!r) { beep(false); renderMini(); return; }
+  beep(true); renderMini();
+  if (r.short) scanStatus('warn', `△ ${item.name || item.code} — 그 자리에 남은 게 없어요`);
+  else scanStatus('ok', `✓ ${item.name || item.code} +1 · 박스 ${ui.car ? ui.car.qty : 0}개${r.from ? ' · ' + r.from + ' 에서' : ''}`);
+}
+/** 담기 한 번 — 자리를 안 주면 그 품목이 가장 많이 있는 자리에서 꺼내요 */
+async function carPut(item, qty, from){
+  const c = ui.car; if (!c) return null;
+  if (from === undefined) {
+    const already = c.rows.find(x => x.code === item.code);   // 이미 담은 줄이 있으면 같은 자리에서
+    if (already) from = already.from;
+    else {
+      const r0 = await mgrCall('itemBins', {code: item.code});
+      const have = ((r0 && r0.rows) || []).slice().sort((a, b) => b.qty - a.qty);
+      if (have.length > 1) {
+        // 자리가 여러 곳이면 처음 한 번만 물어봐요. 그 뒤 같은 품목은 고른 자리에서 계속 꺼내요.
+        const pick = await ask({ title: '어느 자리에서 꺼냈나요?',
+          body: `<b>${esc(item.name || item.code)}</b><br><span class="mono">${esc(item.code)}</span><br>이 품목이 여러 자리에 있어요. 한 번만 고르면 그다음부터는 안 물어봐요.`,
+          html: `<select id="cpFrom" class="search">${have.map(x => `<option value="${esc(x.loc)}">${esc(x.loc)} · ${x.qty}개</option>`).join('')}</select>`,
+          actions: [{label:'여기서 꺼냈어요', kind:'primary', value: box => box.querySelector('#cpFrom').value},
+                    {label:'취소', value:null}] });
+        if (!pick) return null;
+        from = pick;
+      } else from = have.length ? have[0].loc : '';
+    }
+  }
+  const r = await mgrCall('cartonAdd', {id: c.id, by: worker(),
+    rows: [{code: item.code, name: item.name || '', from, qty}]});
+  if (!r) return null;
+  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
+  ui.car = {id: c.id, rows: (r.carton && r.carton.rows) || [], qty: (r.carton && r.carton.qty) || 0};
+  ui.carLast = item.code + '|' + from;
+  ui.carLog = null; render();
+  return { from, short: !!(r.short && r.short.length), n: r.n };
+}
+/** 박스에서 한 줄(또는 일부 수량)을 꺼냈던 자리로 되돌려요 */
+async function carTake(i, qty){
+  const c = ui.car; if (!c) return;
+  const row = c.rows[i]; if (!row) return;
+  const q = Math.max(1, Math.min(row.qty, qty || row.qty));
+  const r = await mgrCall('cartonUndo', {id: c.id, by: worker(),
+    rows: [{code: row.code, from: row.from, qty: q}]});
+  if (!r) return;
+  afterWrite(); ui.binsOf = {}; ui.binsSlip = '';
+  ui.car = {id: c.id, rows: (r.carton && r.carton.rows) || [], qty: (r.carton && r.carton.qty) || 0};
+  ui.carLast = ''; ui.carLog = null; render();
+  toast(`${row.name || row.code} ${q}개를 ${row.from || '제자리'} 로 되돌렸어요`);
 }
 /* ---- 화면 ---- */
 function mgrRow(r, mode){
@@ -2191,33 +2284,64 @@ function renderMgr(){
     </div>`;
   } else if (mode === 'carton') {
     const c = ui.car, lg = ui.carLog, list = ui.carList;
-    body = c ? `<div class="panel">
-      <div class="sec-title" style="margin:0"><h3 class="mono">박스 ${esc(c.id)}</h3><span class="count"><b>${c.qty}</b>개 · ${c.rows.length}품목</span></div>
+    body = c ? `<div class="carbox">
+      <div class="carhead">
+        <span class="plate-id mono">${esc(c.id)}</span>
+        <span class="carsum"><b>${c.qty}</b>개<small>${c.rows.length}품목</small></span>
+      </div>
       <button class="btn primary big" type="button" id="carScanBtn">${I.cam}바코드 비춰서 담기</button>
+      <p class="muted" style="margin:0">비추기만 하면 1개씩 담겨요. 수량은 아래에서 고치면 됩니다.</p>
+    </div>
+    <div class="panel">
+      <div class="sec-title" style="margin:0"><h3>담긴 것</h3>
+        ${c.rows.length ? `<button class="btn small" type="button" id="carUndoBtn" style="flex:none">전부 되돌리기</button>` : ''}</div>
+      ${c.rows.length ? `<div class="list">${c.rows.map((x, i) => `<div class="li carli ${ui.carLast === x.code + '|' + x.from ? 'hit' : ''}" style="grid-template-columns:1fr auto">
+          <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small><small class="muted">${x.from ? esc(x.from) + ' 에서' : '자리 없음'}</small></span>
+          <span class="carq">
+            <button class="rnd" type="button" data-cminus="${i}" aria-label="하나 빼기">−</button>
+            <b class="mono">${x.qty}</b>
+            <button class="rnd" type="button" data-cplus="${i}" aria-label="하나 더">+</button>
+            <button class="btn small" type="button" data-cout="${i}">빼기</button>
+          </span></div>`).join('')}</div>`
+        : '<div class="empty"><b>아직 빈 박스예요</b><span>담을 물건의 바코드를 비추거나, 아래에서 찾아 담으세요.</span></div>'}
+    </div>
+    <div class="panel">
+      <h3>바코드가 안 읽힐 때</h3>
       <form class="row" id="mgrForm" style="flex-wrap:nowrap" autocomplete="off">
-        <input class="search" id="mgrQ" type="search" enterkeyhint="search" placeholder="바코드가 안 읽히면 품목명으로 찾아 담기" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
+        <input class="search" id="mgrQ" type="search" enterkeyhint="search" placeholder="품목명 · 품목코드로 찾아 담기" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
         <button class="btn" type="submit" style="flex:0 0 auto">찾기</button>
       </form>
       ${ui.mgrBusy ? '<p>찾는 중…</p>' : ''}
       ${ui.mgrFound ? (ui.mgrFound.length ? `<div class="list">${ui.mgrFound.map(x => `<div class="li" style="grid-template-columns:1fr auto;align-items:center">
           <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small><small class="mono muted">${esc(x.loc || '자리 없음')}</small></span>
           <button class="btn small primary" type="button" data-cadd="${esc(x.code)}">담기</button></div>`).join('')}</div>` : '<p>찾는 품목이 없어요.</p>') : ''}
-      ${c.rows.length ? `<div class="list">${c.rows.map(x => `<div class="li" style="grid-template-columns:1fr auto">
-          <span class="n"><b>${esc(x.name || x.code)}</b><small class="mono">${esc(x.code)}</small><small class="muted">${x.from ? esc(x.from) + ' 에서' : '자리 없음'}</small></span>
-          <span class="q mono">${x.qty}개</span></div>`).join('')}</div>` : '<p>아직 빈 박스예요. 담을 물건의 바코드를 비추세요.</p>'}
+    </div>
+    <div class="panel">
       <button class="btn primary big" type="button" id="carDropBtn">내려놓기 — 자리 정하기</button>
-      <div class="row"><button class="btn small" type="button" id="carUndoBtn">꺼냈던 자리로 되돌리기</button><button class="btn small" type="button" id="carClose">다른 박스 열기</button></div>
+      <button class="btn" type="button" id="carClose">← 박스 목록</button>
     </div>` : `<div class="panel">
-      <h3>박스를 여세요</h3>
-      <p>박스에 붙은 <b>바코드나 QR</b>을 비추면 그 번호가 박스 이름이 돼요. 담는 순간 그 자리 재고에서 빠지고(이동 중), 내려놓는 순간 내려놓은 자리의 재고가 돼요.</p>
-      <button class="btn primary big" type="button" id="carScanBtn">${I.cam}박스 바코드 비추기</button>
-      <form class="row" id="mgrForm" style="flex-wrap:nowrap" autocomplete="off">
-        <input class="search" id="mgrQ" type="search" enterkeyhint="go" placeholder="박스 번호를 직접 적어도 돼요" value="${esc(ui.mgrQ)}" style="flex:1 1 auto">
-        <button class="btn" type="submit" style="flex:0 0 auto">열기</button>
-      </form>
-      ${list ? (list.length ? `<div class="eyebrow">담겨 있는 박스 ${list.length}</div><div class="list">${list.map(x => `<button class="li" type="button" data-car="${esc(x.id)}" style="grid-template-columns:1fr auto"><span class="n"><b class="mono">${esc(x.id)}</b><small>${esc(x.at)} · ${esc(x.by || '')}</small></span><span class="q mono">${x.n}품목 ${x.qty}개</span></button>`).join('')}</div>` : '<p>지금 담겨 있는 박스가 없어요.</p>') : ''}
-      <button class="btn" type="button" id="carListBtn">${list ? '새로고침' : '담겨 있는 박스 보기'}</button>
-    </div>`;
+      <div class="sec-title" style="margin:0"><h3>담겨 있는 박스 ${list ? list.length : ''}</h3>
+        <button class="btn small" type="button" id="carListBtn" style="flex:none">새로고침</button></div>
+      <p class="muted">지금 물건이 들어 있는 박스예요. 박스를 누르면 담고 빼고 내려놓을 수 있어요.</p>
+      <div class="row">
+        <button class="btn primary" type="button" id="carScanBtn">${I.cam}바코드로 열기</button>
+        <button class="btn" type="button" id="carNewBtn">번호로 열기</button>
+      </div>
+    </div>
+    ${list == null ? '<p>불러오는 중…</p>' : list.length ? list.map(x => `<div class="panel boxcard">
+      <button class="boxmain" type="button" data-car="${esc(x.id)}">
+        <span class="boxtop"><span class="plate-id mono sm">${esc(x.id)}</span>
+          <span class="carsum"><b>${x.qty}</b>개<small>${x.n}품목</small></span></span>
+        <span class="boxwho">${esc(x.at)}${x.by ? ' · ' + esc(x.by) : ''}</span>
+        <span class="boxrows">${x.rows.slice(0, 3).map(r => `<span class="boxrow"><span>${esc(r.name || r.code)}</span><b class="mono">${r.qty}</b></span>`).join('')}
+          ${x.rows.length > 3 ? `<span class="boxrow muted">그 밖에 ${x.rows.length - 3}품목</span>` : ''}</span>
+      </button>
+      <div class="row">
+        <button class="btn small primary" type="button" data-caropen="${esc(x.id)}">열어서 담기</button>
+        <button class="btn small" type="button" data-cardrop="${esc(x.id)}">내려놓기</button>
+        <button class="btn small" type="button" data-carundo="${esc(x.id)}">제자리로</button>
+      </div>
+    </div>`).join('') : `<div class="empty"><b>담겨 있는 박스가 없어요</b><span>박스 바코드를 비추거나 번호를 적으면 새 박스가 열려요.</span></div>`}`;
     body += `<div class="panel">
       <div class="sec-title" style="margin:0"><h3>박스 이동 내역</h3><button class="btn small" type="button" id="carLogBtn" style="flex:none">${lg ? '새로고침' : (c ? '이 박스 내역' : '최근 내역')}</button></div>
       <p class="muted">언제 · 어느 박스가 · 무엇을 · 어디서 어디로 옮겼는지 그대로 남아요.</p>
@@ -2285,6 +2409,7 @@ function renderMgr(){
     if (b.dataset.mgr === 'find') { go('codes'); return; }           // 재고 조회는 따로 있는 화면이에요
     ui.mgr = b.dataset.mgr; ui.mgrBins = null; ui.mgrItems = null; ui.mgrItem = null; ui.mgrFound = null; ui.mgrQ = '';
     if (b.dataset.mgr === 'hold') { ui.hold = null; render(); putLoad(); return; }
+    if (b.dataset.mgr === 'carton') { ui.car = null; ui.carList = null; ui.carLog = null; render(); carListLoad(); return; }
     render(); });
   el.querySelectorAll('[data-bin]').forEach(b => b.onclick = async () => {
     const r = await mgrCall('binItems', {loc: b.dataset.bin}); if (!r) return;
@@ -2307,13 +2432,38 @@ function renderMgr(){
   const cs = $('#carScanBtn'); if (cs) cs.onclick = () => openScanner('carton');
   const cdr = $('#carDropBtn'); if (cdr) cdr.onclick = carDrop;
   const cu = $('#carUndoBtn'); if (cu) cu.onclick = carUndo;
-  const cc2 = $('#carClose'); if (cc2) cc2.onclick = () => { ui.car = null; ui.carLog = null; render(); };
-  const clb = $('#carListBtn'); if (clb) clb.onclick = async () => { const r = await mgrCall('cartonList', {}); ui.carList = r ? r.cartons : []; render(); };
+  const cc2 = $('#carClose'); if (cc2) cc2.onclick = () => { ui.car = null; ui.carLog = null; ui.carList = null; render(); carListLoad(); };
+  const clb = $('#carListBtn'); if (clb) clb.onclick = carListLoad;
+  const cnb = $('#carNewBtn'); if (cnb) cnb.onclick = carNew;
+  el.querySelectorAll('[data-caropen]').forEach(b => b.onclick = () => carOpen(b.dataset.caropen));
+  el.querySelectorAll('[data-cardrop]').forEach(b => b.onclick = async () => {
+    await carOpen(b.dataset.cardrop); await carDrop(); });
+  el.querySelectorAll('[data-carundo]').forEach(b => b.onclick = async () => {
+    await carOpen(b.dataset.carundo); await carUndo(); });
   const cl = $('#carLogBtn'); if (cl) cl.onclick = async () => { const r = await mgrCall('cartonLog', {id: ui.car ? ui.car.id : '', limit: 100}); ui.carLog = r ? r.rows : []; render(); };
   el.querySelectorAll('[data-car]').forEach(b => b.onclick = () => carOpen(b.dataset.car));
   el.querySelectorAll('[data-cadd]').forEach(b => b.onclick = async () => {
     const f = (ui.mgrFound || []).find(x => x.code === b.dataset.cadd) || {code: b.dataset.cadd};
     await carAdd({code: f.code, name: f.name || ''}); });
+  el.querySelectorAll('[data-cplus]').forEach(b => b.onclick = async () => {
+    const x = (ui.car && ui.car.rows[Number(b.dataset.cplus)]); if (!x) return;
+    const r = await carPut({code: x.code, name: x.name}, 1, x.from);
+    if (r && r.short) toast(`${x.from || '그 자리'} 에 남은 게 없어요`);
+  });
+  el.querySelectorAll('[data-cminus]').forEach(b => b.onclick = () => carTake(Number(b.dataset.cminus), 1));
+  el.querySelectorAll('[data-cout]').forEach(b => b.onclick = async () => {
+    const i = Number(b.dataset.cout), x = (ui.car && ui.car.rows[i]); if (!x) return;
+    const v = await ask({ title: '박스에서 뺄까요?',
+      body: `<b>${esc(x.name || x.code)}</b><br><span class="mono">${esc(x.code)}</span> · 박스에 ${x.qty}개<br>${x.from ? `<b class="mono">${esc(x.from)}</b> 로 되돌아가요` : '꺼냈던 자리가 없어 재고에는 더해지지 않아요'}`,
+      html: `<label class="muted" for="coQty" style="font-size:13px">뺄 수량</label>
+        <input class="search" id="coQty" type="number" inputmode="numeric" min="1" max="${x.qty}" value="${x.qty}">`,
+      actions: [{label:'빼기', kind:'primary', value: box2 => {
+          const q = Math.floor(Number(box2.querySelector('#coQty').value) || 0);
+          if (q < 1) { toast('수량을 적어 주세요'); return undefined; }
+          return q;
+        }}, {label:'취소', value:null}] });
+    if (v) await carTake(i, v);
+  });
   const up = $('#mgrUp'); if (up) up.onclick = () => $('#fileLocs').click();
   ['mgrSeed', 'mgrSeed2'].forEach(id => { const b = $('#' + id); if (b) b.onclick = mgrSeed; });
   $('#expMoveNew').onclick = () => exportMoves(true);
@@ -2623,12 +2773,29 @@ async function onScan(raw){
   addPick(ui.cur, 1, 'scan');
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  const f = document.getElementById('scanManual');
+  if (f) f.onsubmit = ev => { ev.preventDefault(); typedCode(); };
+});
 const scanner = { mode:'pick', stream:null, running:false, paused:false, detector:null, zx:null, zxHints:null, canvas:null, lastCode:'', lastSeen:0, idleT:0, torchOn:false };
 function scanStatus(kind, text){ const s = $('#scanStatus'); if (!s) return; s.className = 'status ' + (kind || ''); s.textContent = text;
   const a = $('#aim'); if (a && kind) { a.classList.remove('hit', 'miss'); a.classList.add(kind === 'ok' ? 'hit' : 'miss'); setTimeout(() => a.classList.remove('hit', 'miss'), 600); } }
 function renderMini(){
   const box = $('#scanMini');
-  if (scanner.mode === 'lookup' || scanner.mode === 'mgr' || scanner.mode === 'carton' || scanner.mode === 'inbound') { if (!box.dataset.filled) box.innerHTML = `<span class="n">${scanner.mode === 'carton' ? (ui.car ? `박스 ${esc(ui.car.id)} · 담을 물건을 비추세요` : '박스 바코드를 비추면 열려요') : scanner.mode === 'inbound' ? '도착한 물건을 비추면 1개씩 세어져요' : scanner.mode === 'mgr' ? (ui.cnt ? '비추면 그 품목을 1개씩 세요' : '비추면 그 물건을 옮길 수 있어요') : '바코드를 비추면 재고를 보여드려요'}</span>`; return; }
+  if (scanner.mode === 'carton') {      // 박스 안을 보면서 담아요
+    const c = ui.car;
+    box.classList.toggle('stack', !!c);
+    if (!c) { box.innerHTML = '<span class="n">박스 바코드를 비추면 열려요</span>'; return; }
+    const rows = c.rows.slice().reverse();
+    box.innerHTML = `<div class="top"><b>${esc(c.id)}</b><span>${c.qty}개 · ${c.rows.length}품목</span></div>`
+      + (rows.length ? rows.map(x => `<div class="r ${ui.carLast === x.code + '|' + x.from ? 'hit' : ''}">
+          <span>${esc(x.name || x.code)}<small>${esc(x.code)}${x.from ? ' · ' + esc(x.from) : ''}</small></span>
+          <b>${x.qty}</b></div>`).join('')
+        : '<div class="none">아직 빈 박스예요. 담을 물건을 비추세요.</div>');
+    return;
+  }
+  box.classList.remove('stack');
+  if (scanner.mode === 'lookup' || scanner.mode === 'mgr' || scanner.mode === 'inbound') { if (!box.dataset.filled) box.innerHTML = `<span class="n">${scanner.mode === 'inbound' ? '도착한 물건을 비추면 1개씩 세어져요' : scanner.mode === 'mgr' ? (ui.cnt ? '비추면 그 품목을 1개씩 세요' : '비추면 그 물건을 옮길 수 있어요') : '바코드를 비추면 재고를 보여드려요'}</span>`; return; }
   const slip = curSlip(); if (!slip || ui.cur < 0) { box.innerHTML = '<span class="n">남은 품목이 없어요</span>'; return; }
   const i = info(slip, curProg(), ui.cur);
   box.innerHTML = `<span class="l ${mainLoc(i.l) ? '' : 'none'}">${esc(mainLoc(i.l) || '위치 없음')}</span><span class="n">${esc(i.l.name)}<small>${esc(i.l.code)}</small></span><span class="q">${i.p}/${i.l.qty}</span>`;
@@ -2656,6 +2823,14 @@ function zxDecode(source, sx, sy, sw, sh, w, h){
   catch(e){ return ''; }
 }
 const SCAN_GAP_MS = 1000; // 카메라로 한 번 읽은 뒤 다음 바코드를 받기까지 쉬는 시간 (1초)
+/** 손으로 적은 바코드도 비춘 것과 똑같이 다뤄요 (라벨이 닳아 안 읽힐 때) */
+function typedCode(){
+  const el = $('#scanBc'); if (!el) return;
+  const v = normBc(el.value); if (!v) return;
+  el.value = '';
+  scanner.lastCode = ''; scanner.lastAccept = 0; scanner.paused = false;
+  gotCode(v);
+}
 function gotCode(code){
   const now = Date.now();
   if (code === scanner.lastCode && now - scanner.lastSeen < 900) { scanner.lastSeen = now; return; } // 같은 바코드가 계속 비치는 중이면 한 번만
